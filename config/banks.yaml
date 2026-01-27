@@ -1,0 +1,144 @@
+# Bank Column Mappings / Banka Sütun Eşleştirmeleri
+# Based on actual data from "2025 - Kredi Kartı Komisyon Analizi.xlsx"
+
+# Standard schema fields (from Veri sheet):
+# - AY: Month (Ocak, Şubat, etc.)
+# - Tarih: Transaction date
+# - Taksit Sayısı: Installment count (Peşin, 2, 3, ... 12)
+# - Banka Adı: Bank name
+# - Tutar: Gross amount
+# - Oran: Commission rate (decimal, e.g., 0.0374)
+# - Komisyon: Commission amount
+# - Tek Çekim / Taksit: Payment type (Tek Çekim or Taksit)
+
+banks:
+  garanti:
+    name: "Garanti"
+    sheet_name: "Garanti"
+    raw_columns:
+      ISLEMTARIHI: Tarih
+      AY: AY
+      BURUT: Tutar
+      KOMISYON: Komisyon
+      NET: Net Tutar
+      TSAYISI: Taksit Sayısı
+      ISLEMTIPI: İşlem Tipi
+    settlement_days: 1
+
+  akbank:
+    name: "Akbank"
+    sheet_name: "Akbank"
+    raw_columns:
+      ISLEM_TARIHI: Tarih
+      AY: AY
+      PROVIZYON_TUTAR: Tutar
+      KOMISYON_TUTAR: Komisyon
+      NET_TUTAR: Net Tutar
+      TAKSIT_SAYI: Taksit Sayısı
+      ISLEM_TIPI: İşlem Tipi
+      ORAN: Oran
+    settlement_days: 1
+
+  halkbank:
+    name: "Halkbank"
+    sheet_name: "Halkbank"
+    raw_columns:
+      İşlem Tarihi: Tarih
+      AY: AY
+      Çözülmüş Alacak Tutarı: Tutar
+      Komisyon Oranı: Oran
+      TAKSİT: Taksit Sayısı
+      İşlem Tipi: İşlem Tipi
+    settlement_days: 1
+
+  ykb:
+    name: "YKB"
+    sheet_name: "YKB"
+    raw_columns:
+      İşlem Tutarı: Tutar
+      Net Tutar: Net Tutar
+      Brüt Tutar: Brüt Tutar
+      AY: AY
+      Taksit Sayısı / Taksit Numarası: Taksit Sayısı
+      ORAN: Oran
+      NET KESİNTİ: Komisyon
+    settlement_days: 1
+
+  ziraat:
+    name: "ZİRAAT"
+    sheet_name: "ZİRAAT"
+    raw_columns:
+      İşlem Tari: Tarih
+      AY: AY
+      Tutar: Tutar
+      Komisyon Tutarı: Komisyon
+      Net Tutar: Net Tutar
+      Taksit Sayısı: Taksit Sayısı
+      Komisyon Oranı: Oran
+    settlement_days: 1
+
+  vakifbank:
+    name: "Vakıfbank"
+    sheet_name: "Vakıfbank"
+    raw_columns:
+      İşlem Tarihi: Tarih
+      AY: AY
+      Brüt Tutar: Tutar
+      Komisyon: Komisyon
+      Net Tutar: Net Tutar
+      Taksit Sayısı: Taksit Sayısı
+      Komisyon Oranı: Oran
+    settlement_days: 1
+
+  qnb:
+    name: "QNB"
+    sheet_name: "QNB"
+    raw_columns:
+      Bloke Tarihi: Tarih
+      Çözülme Tarihi: Hesaba Geçiş Tarihi
+      AY: AY
+      Bekleyen Alacak Tutarı: Tutar
+      Üye İşyeri Ücret Oranı: Oran
+    settlement_days: 1
+
+  isbankasi:
+    name: "İşbankası"
+    raw_columns:
+      Tutar: Tutar
+      Taksit: Taksit Sayısı
+
+# Commission rates by bank and installment (from Oranlar sheet)
+# Rates are stored as decimals (e.g., 0.0374 = 3.74%)
+commission_rates:
+  garanti:
+    pesin: 0.0365
+    2: 0.0566
+    3: 0.0753
+    4: 0.0940
+    5: 0.1126
+    6: 0.1313
+    7: 0.1500
+    8: 0.1687
+    9: 0.1874
+    10: 0.2061
+    11: 0.2248
+    12: 0.2435
+    
+  ziraat:
+    pesin: 0.0295
+    2: 0.0489
+    3: 0.0680
+    4: 0.0865
+    5: 0.1050
+    6: 0.1210
+    7: 0.1425
+    8: 0.1612
+    9: 0.1809
+    10: 0.1999
+
+# Default settings
+defaults:
+  settlement_days: 1
+  date_format: "%Y-%m-%d"
+  decimal_separator: ","
+  thousands_separator: "."

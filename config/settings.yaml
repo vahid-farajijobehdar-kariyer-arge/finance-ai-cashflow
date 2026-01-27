@@ -1,0 +1,36 @@
+# Application Settings / Uygulama Ayarları
+
+paths:
+  raw_data: "data/raw"
+  processed_data: "data/processed"
+  output: "data/output"
+
+# Processing settings
+processing:
+  # Only include these transaction types
+  include_transaction_types:
+    - "successful_sale"
+    - "SATIŞ"
+    - "Satış"
+    - "Peşin Satış"
+  
+  # Exclude these transaction types
+  exclude_transaction_types:
+    - "İADE"
+    - "İade"
+    - "İPTAL"
+    - "İptal"
+    - "BAŞARISIZ"
+    - "Başarısız"
+
+# Dashboard settings
+dashboard:
+  title: "Cash Flow Dashboard / Nakit Akış Paneli"
+  page_icon: "💰"
+  layout: "wide"
+  
+# Report settings
+reports:
+  date_format: "%Y-%m-%d"
+  currency: "TRY"
+  currency_symbol: "₺"
