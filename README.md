@@ -2,9 +2,7 @@
 
 An AI-powered cash flow analysis and management system for credit card commission tracking.
 
-## 🇹🇷 Türkçe
 
-Kredi kartı komisyon takibi ve nakit akışı analizi için yapay zeka destekli yönetim sistemi.
 
 ### Özellikler
 
@@ -15,45 +13,8 @@ Kredi kartı komisyon takibi ve nakit akışı analizi için yapay zeka destekli
 - **Dosya Yönetimi**: Excel dosyaları için metadata takibi ve cache sistemi
 - **Gelecek Değer Hesabı**: Mevduat faiz oranlarıyla yatırım projeksiyonu
 
-### Desteklenen Bankalar
-
-| Banka | Tek Çekim | 2 Taksit | 3 Taksit | 6 Taksit | 9 Taksit | 12 Taksit |
-|-------|-----------|----------|----------|----------|----------|-----------|
-| ZİRAAT | 0.00% | 1.60% | 1.70% | 4.00% | 5.75% | 6.30% |
-| AKBANK | 0.40% | 1.80% | 2.10% | 4.10% | 5.70% | 6.80% |
-| GARANTİ | 0.00% | 1.60% | 1.70% | 4.00% | 5.75% | 6.30% |
-| ... | ... | ... | ... | ... | ... | ... |
-
-### Kurulum
-
-```bash
-# Sanal ortam oluştur
-python -m venv .venv
-source .venv/bin/activate  # macOS/Linux
-.venv\Scripts\activate     # Windows
-
-# Bağımlılıkları yükle
-pip install -r requirements.txt
-
-# Dashboard'u çalıştır
-cd ai-transformation/cash-flow-dash
-streamlit run src/dashboard/app.py
-```
 
 ---
-
-## 🇬🇧 English
-
-AI-powered cash flow analysis and management system for credit card commission tracking.
-
-### Features
-
-- **Statement Analysis**: Automatic commission calculation on raw bank statements
-- **Single/Installment Split**: Classify transactions as cash or installment
-- **Bank-Based Commission Rates**: Correct rate application per bank and installment count
-- **Control Mechanism**: System to verify calculated values accuracy
-- **File Management**: Metadata tracking and cache system for Excel files
-- **Future Value Calculator**: Investment projection with deposit interest rates
 
 ### Project Structure
 
@@ -153,11 +114,3 @@ banks:
       installment: "Taksit Sayısı"
 ```
 
-### Environment Variables
-
-Create a `.env` file for custom configuration:
-
-```env
-DATA_PATH=/path/to/data
-LOG_LEVEL=INFO
-```
