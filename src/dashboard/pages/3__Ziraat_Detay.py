@@ -18,7 +18,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from ingestion.reader import BankFileReader
 from processing.commission_control import add_commission_control
 
-st.set_page_config(page_title="Ziraat Bankası Detay", page_icon="🏦", layout="wide")
+# Import auth module
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from auth import check_password
 
 
 @st.cache_data
@@ -288,6 +290,12 @@ def display_raw_data(df: pd.DataFrame):
 
 
 def main():
+    st.set_page_config(page_title="Ziraat Bankası Detay", page_icon="🏦", layout="wide")
+    
+    # Require authentication
+    if not check_password():
+        return
+    
     st.title("🏦 Ziraat Bankası Detay Analizi")
     st.markdown("---")
     
@@ -297,7 +305,7 @@ def main():
     
     if len(df) == 0:
         st.error("Ziraat Bankası verisi bulunamadı!")
-        st.info("data/raw/ klasörüne Ziraat Bankası dosyası ekleyin.")
+        st.info("Lütfen Dosya Yükle sayfasından Ziraat dosyası yükleyin.")
         return
     
     st.success(f"✅ {len(df):,} Ziraat işlemi yüklendi")

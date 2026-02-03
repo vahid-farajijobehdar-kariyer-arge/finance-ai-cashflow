@@ -23,6 +23,10 @@ from processing.calculator import filter_successful_transactions, calculate_grou
 from storage.metadata import MetadataManager, FileMetadata
 from storage.cache import FileCache
 
+# Import auth module
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from auth import check_password
+
 # Data paths
 RAW_PATH = PROJECT_ROOT.parent / "data" / "raw"
 logger = logging.getLogger(__name__)
@@ -301,6 +305,10 @@ st.set_page_config(
     page_icon="📤",
     layout="wide"
 )
+
+# Require authentication
+if not check_password():
+    st.stop()
 
 st.title("📤 Dosya Yükle")
 st.markdown("Banka ekstre dosyalarını yükleyin ve analiz edin.")

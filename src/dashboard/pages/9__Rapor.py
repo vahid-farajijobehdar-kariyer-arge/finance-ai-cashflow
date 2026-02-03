@@ -21,11 +21,13 @@ from ingestion.reader import BankFileReader
 from processing.commission_control import add_commission_control, COMMISSION_RATES
 from processing.calculator import filter_successful_transactions, calculate_ground_totals
 
+# Import auth module
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from auth import check_password
+
 # Data paths
 RAW_PATH = PROJECT_ROOT.parent / "data" / "raw"
 OUTPUT_PATH = PROJECT_ROOT.parent / "data" / "output"
-
-st.set_page_config(page_title="Rapor Oluştur", page_icon="📊", layout="wide")
 
 
 @st.cache_data
@@ -437,6 +439,12 @@ def display_filter_and_export(df: pd.DataFrame):
 
 
 def main():
+    st.set_page_config(page_title="Rapor Oluştur", page_icon="📊", layout="wide")
+    
+    # Require authentication
+    if not check_password():
+        return
+    
     st.title("📊 Rapor Oluşturucu")
     st.markdown("Komisyon analizi raporlarını oluşturun ve dışa aktarın.")
     st.markdown("---")
@@ -445,10 +453,8 @@ def main():
     df = load_data()
     
     if df is None or df.empty:
-        st.error(f"""
+        st.error("""
         ❌ Veri bulunamadı.
-        
-        Beklenen dizin: `{RAW_PATH}`
         
         Önce '📤 Dosya Yükle' sayfasından dosya yükleyin.
         """)

@@ -19,6 +19,10 @@ if str(PROJECT_ROOT) not in sys.path:
 from processing.future_value import FutureValueCalculator, DEPOSIT_RATES
 from storage.metadata import MetadataManager
 
+# Import auth module
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from auth import check_password
+
 
 def init_calculator():
     """Initialize future value calculator."""
@@ -319,6 +323,10 @@ def main():
         page_icon="💰",
         layout="wide"
     )
+    
+    # Require authentication
+    if not check_password():
+        return
     
     st.title("💰 Gelecek Değer Hesaplayıcı")
     st.markdown("---")

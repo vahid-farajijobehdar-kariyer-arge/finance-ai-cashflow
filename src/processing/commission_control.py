@@ -84,8 +84,8 @@ def get_anomaly_threshold() -> float:
     return _ANOMALY_THRESHOLD
 
 
-# For backward compatibility
-COMMISSION_RATES = property(lambda self: get_commission_rates())
+# For backward compatibility - expose as callable dict getter
+COMMISSION_RATES = get_commission_rates()
 
 
 def get_expected_rate(bank_name: str, installment_count: int) -> Optional[float]:
