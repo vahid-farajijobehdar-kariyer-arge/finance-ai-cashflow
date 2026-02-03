@@ -84,12 +84,22 @@ def format_currency(value: float) -> str:
         return f"₺{value:,.0f}"
 
 
+import os
+
 def check_password() -> bool:
     """Returns True if the user has entered the correct password."""
     
+    # Get password from secrets or environment variable
+    def get_password():
+        try:
+            return st.secrets["passwords"]["dashboard_password"]
+        except (KeyError, FileNotFoundError):
+            # Fallback to environment variable or default
+            return os.environ.get("DASHBOARD_PASSWORD", "kariyer2026")
+    
     def password_entered():
         """Checks whether a password entered by the user is correct."""
-        if st.session_state["password"] == st.secrets["passwords"]["dashboard_password"]:
+        if st.session_state["password"] == get_password():
             st.session_state["password_correct"] = True
             del st.session_state["password"]  # Don't store password
         else:
