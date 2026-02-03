@@ -84,6 +84,54 @@ def format_currency(value: float) -> str:
         return f"₺{value:,.0f}"
 
 
+def check_password() -> bool:
+    """Returns True if the user has entered the correct password."""
+    
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        if st.session_state["password"] == st.secrets["passwords"]["dashboard_password"]:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # Don't store password
+        else:
+            st.session_state["password_correct"] = False
+    
+    # First run or password not correct
+    if "password_correct" not in st.session_state:
+        st.set_page_config(page_title="Giriş - Cash Flow", page_icon="🔐", layout="centered")
+        st.title("🔐 Cash Flow Dashboard")
+        st.markdown("---")
+        st.text_input(
+            "Şifre / Password", 
+            type="password", 
+            on_change=password_entered, 
+            key="password",
+            placeholder="Şifrenizi girin..."
+        )
+        st.markdown("---")
+        st.caption("Kariyer.net Finans Ekibi © 2026")
+        return False
+    
+    # Password incorrect
+    if not st.session_state["password_correct"]:
+        st.set_page_config(page_title="Giriş - Cash Flow", page_icon="🔐", layout="centered")
+        st.title("🔐 Cash Flow Dashboard")
+        st.markdown("---")
+        st.text_input(
+            "Şifre / Password", 
+            type="password", 
+            on_change=password_entered, 
+            key="password",
+            placeholder="Şifrenizi girin..."
+        )
+        st.error("❌ Hatalı şifre / Incorrect password")
+        st.markdown("---")
+        st.caption("Kariyer.net Finans Ekibi © 2026")
+        return False
+    
+    # Password correct
+    return True
+
+
 def setup_page():
     """Configure Streamlit page settings."""
     st.set_page_config(
@@ -867,6 +915,10 @@ def display_data_table(df: pd.DataFrame):
 
 def main():
     """Main dashboard application."""
+    # Check password first
+    if not check_password():
+        return
+    
     setup_page()
     
     # Load data from raw files
