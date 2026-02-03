@@ -1,7 +1,9 @@
 """
-🔍 Veri Kontrolü
+🔍 Veri Kontrolü - Kariyer.net Finans
 
-Dosya bazında veri kalitesi kontrolü, eksik veri tespiti ve tutarlılık analizi.
+Dosya bazında veri kalitesi kontrolü, komisyon doğrulama ve tutarlılık analizi.
+
+© 2026 Kariyer.net Finans Ekibi
 """
 
 import sys

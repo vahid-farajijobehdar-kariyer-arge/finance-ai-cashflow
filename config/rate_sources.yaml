@@ -1,0 +1,6 @@
+last_check: null
+sources:
+  manual:
+    description: Rates entered manually in dashboard
+    name: Manual Entry
+    type: manual

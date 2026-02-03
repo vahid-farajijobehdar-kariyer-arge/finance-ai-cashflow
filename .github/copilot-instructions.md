@@ -95,12 +95,36 @@ Special handling in `reader.py`:
 
 ## Commission Rates (GÜNCELLENEN ORANLAR-v3)
 
-Defined in `src/processing/commission_control.py`. Example:
+Rates are stored in `config/commission_rates.yaml` and managed via `src/processing/rate_manager.py`.
+
+### Rate Management Features
+- **View/Edit**: Dashboard page `12__Komisyon_Oranlari.py`
+- **Version Control**: `config/rate_history.json` tracks all changes
+- **Import Sources**: YAML file, CSV file, or remote URL
+- **Export**: Download rates as YAML or CSV
+- **Backup**: Automatic backup before any import
+
+### Updating Rates
+1. **Via Dashboard**: Navigate to "Komisyon Oranları" page, edit rates directly
+2. **Via File**: Upload new `commission_rates.yaml` or CSV file
+3. **Via URL**: Import from remote YAML/JSON endpoint
+4. **Via Code**:
 ```python
-"T. VAKIFLAR BANKASI T.A.O.": {
-    "Peşin": 0.0336, "1": 0.0336,
-    "2": 0.0499, "3": 0.0690, ..., "12": 0.2395
-}
+from processing.rate_manager import get_rate_manager
+manager = get_rate_manager()
+manager.update_bank_rate("vakifbank", 1, 0.0340)  # Update single rate
+manager.import_from_url("https://example.com/rates.yaml")  # Import from URL
+```
+
+### Rate File Format (YAML)
+```yaml
+banks:
+  vakifbank:
+    aliases: ["T. VAKIFLAR BANKASI T.A.O.", "Vakıfbank"]
+    rates:
+      1: 0.0336    # Peşin
+      2: 0.0499
+      3: 0.0690
 ```
 
 ## Dashboard Pages
@@ -118,6 +142,8 @@ Defined in `src/processing/commission_control.py`. Example:
 | 🏦 QNB Detay | `8__QNB_Detay.py` | QNB Finansbank analysis |
 | 🏦 YKB Detay | `9__YKB_Detay.py` | Yapı Kredi analysis |
 | 📊 Rapor | `10__Rapor.py` | Export reports (Excel, CSV) |
+| 🏦 İşbank Detay | `11__Isbank_Detay.py` | İş Bankası analysis |
+| 📊 Komisyon Oranları | `12__Komisyon_Oranlari.py` | Rate management (view, edit, import, history) |
 
 ## File Locations
 - **Raw data**: `data/raw/` (bank Excel exports)

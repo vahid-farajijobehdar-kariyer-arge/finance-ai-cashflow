@@ -1,9 +1,11 @@
-"""Cash Flow Dashboard - Streamlit Application.
+"""Kariyer.net Finans - POS Komisyon Takip Sistemi
 
-Interactive dashboard for analyzing bank POS commission data with control mechanisms.
-Loads raw bank files, verifies commission rates, and provides analysis views.
+Banka POS komisyon verilerini analiz eden interaktif dashboard.
+Ham banka dosyalarını yükler, komisyon oranlarını doğrular ve analiz görünümleri sunar.
 
-Run with: streamlit run src/dashboard/app.py
+Çalıştırma: streamlit run src/dashboard/app.py
+
+© 2026 Kariyer.net Finans Ekibi
 """
 
 from pathlib import Path
@@ -114,35 +116,37 @@ def check_password() -> bool:
     
     # First run or password not correct
     if "password_correct" not in st.session_state:
-        st.set_page_config(page_title="Giriş - Cash Flow", page_icon="🔐", layout="centered")
-        st.title("🔐 Cash Flow Dashboard")
+        st.set_page_config(page_title="Giriş - Kariyer.net Finans", page_icon="🔐", layout="centered")
+        st.title("🔐 POS Komisyon Takip Sistemi")
+        st.markdown("**Kariyer.net Finans Ekibi**")
         st.markdown("---")
         st.text_input(
-            "Şifre / Password", 
+            "Şifre", 
             type="password", 
             on_change=password_entered, 
             key="password",
             placeholder="Şifrenizi girin..."
         )
         st.markdown("---")
-        st.caption("Kariyer.net Finans Ekibi © 2026")
+        st.caption("© 2026 Kariyer.net Finans Ekibi")
         return False
     
     # Password incorrect
     if not st.session_state["password_correct"]:
-        st.set_page_config(page_title="Giriş - Cash Flow", page_icon="🔐", layout="centered")
-        st.title("🔐 Cash Flow Dashboard")
+        st.set_page_config(page_title="Giriş - Kariyer.net Finans", page_icon="🔐", layout="centered")
+        st.title("🔐 POS Komisyon Takip Sistemi")
+        st.markdown("**Kariyer.net Finans Ekibi**")
         st.markdown("---")
         st.text_input(
-            "Şifre / Password", 
+            "Şifre", 
             type="password", 
             on_change=password_entered, 
             key="password",
             placeholder="Şifrenizi girin..."
         )
-        st.error("❌ Hatalı şifre / Incorrect password")
+        st.error("❌ Hatalı şifre")
         st.markdown("---")
-        st.caption("Kariyer.net Finans Ekibi © 2026")
+        st.caption("© 2026 Kariyer.net Finans Ekibi")
         return False
     
     # Password correct
@@ -152,12 +156,12 @@ def check_password() -> bool:
 def setup_page():
     """Configure Streamlit page settings."""
     st.set_page_config(
-        page_title="Ana Panel - Nakit Akış",
+        page_title="Ana Panel - Kariyer.net Finans",
         page_icon="💰",
         layout="wide",
     )
-    st.title("💰 Ana Panel")
-    st.markdown("**Banka POS Komisyon Analizi - 8 Banka**")
+    st.title("💰 POS Komisyon Takip Sistemi")
+    st.markdown("**Kariyer.net Finans - 8 Banka Komisyon Analizi**")
     st.markdown("---")
 
 
@@ -945,28 +949,33 @@ def main():
     df = load_raw_data()
     
     if df is None or df.empty:
-        st.error("""
-        ❌ Veri dosyası bulunamadı / Data file not found.
+        st.warning("""
+        ⚠️ **Veri Bulunamadı**
         
-        Lütfen '📤 Dosya Yükle' sayfasından banka ekstre dosyalarınızı yükleyin.
-        Please upload your bank statement files from the '📤 File Upload' page.
+        Henüz banka ekstre dosyası yüklenmemiş.
         
-        Desteklenen formatlar / Supported formats: CSV, XLSX, XLS
+        **Nasıl yüklenir?**
+        1. Sol menüden **"📤 Dosya Yükle"** sayfasına gidin
+        2. Banka ekstre dosyalarınızı (Excel/CSV) yükleyin
+        3. Ana Panel'e geri dönün
+        
+        ---
+        📖 Detaylı bilgi için **"📖 Nasıl Kullanılır"** sayfasına bakın.
         """)
         
-        # Show available files
+        # Yüklü dosyaları göster
         if RAW_PATH.exists():
-            files = list(RAW_PATH.glob("*"))
+            files = [f.name for f in RAW_PATH.glob("*") if not f.name.startswith('.')]
             if files:
-                st.info(f"Mevcut dosyalar / Available files: {[f.name for f in files if not f.name.startswith('.')]}")
+                st.info(f"📁 Mevcut dosyalar: {files}")
         return
     
-    # Show success with loaded file info
+    # Yükleme başarılı mesajı
     source_files = df["source_file"].unique() if "source_file" in df.columns else []
-    st.success(f"✅ {len(df):,} işlem yüklendi / transactions loaded from {len(source_files)} file(s)")
+    st.success(f"✅ {len(df):,} işlem yüklendi ({len(source_files)} dosyadan)")
     
     if source_files.any() if hasattr(source_files, 'any') else len(source_files) > 0:
-        with st.expander("📁 Yüklenen dosyalar / Loaded files"):
+        with st.expander("📁 Yüklenen dosyalar"):
             for f in source_files:
                 st.write(f"• {f}")
     

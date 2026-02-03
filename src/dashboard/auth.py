@@ -1,7 +1,9 @@
 """
-Authentication Module for Cash Flow Dashboard.
+Kimlik Doğrulama Modülü - Kariyer.net Finans
 
-Provides password protection for all pages.
+Tüm sayfalar için şifre koruması sağlar.
+
+© 2026 Kariyer.net Finans Ekibi
 """
 
 import os
@@ -9,7 +11,7 @@ import streamlit as st
 
 
 def get_password() -> str:
-    """Get password from secrets, environment, or fallback."""
+    """Şifreyi secrets, environment veya varsayılandan al."""
     try:
         return st.secrets["passwords"]["dashboard_password"]
     except (KeyError, FileNotFoundError):
@@ -17,50 +19,51 @@ def get_password() -> str:
 
 
 def check_password() -> bool:
-    """Returns True if the user has entered the correct password.
+    """Kullanıcının doğru şifreyi girip girmediğini kontrol eder.
     
-    Must be called at the start of every page to enforce authentication.
+    Her sayfanın başında çağrılmalıdır.
     """
     
     def password_entered():
-        """Checks whether a password entered by the user is correct."""
+        """Girilen şifrenin doğruluğunu kontrol eder."""
         if st.session_state.get("password") == get_password():
             st.session_state["password_correct"] = True
             if "password" in st.session_state:
-                del st.session_state["password"]  # Don't store password
+                del st.session_state["password"]
         else:
             st.session_state["password_correct"] = False
     
-    # Already authenticated
+    # Zaten giriş yapılmış
     if st.session_state.get("password_correct", False):
         return True
     
-    # Show login form (page config should be set by the calling page)
-    st.title("🔐 Cash Flow Dashboard")
+    # Giriş formu
+    st.title("🔐 POS Komisyon Takip Sistemi")
+    st.markdown("**Kariyer.net Finans Ekibi**")
     st.markdown("---")
     
     st.text_input(
-        "Şifre / Password", 
+        "Şifre", 
         type="password", 
         on_change=password_entered, 
         key="password",
         placeholder="Şifrenizi girin..."
     )
     
-    # Show error if password was incorrect
+    # Hatalı şifre mesajı
     if "password_correct" in st.session_state and not st.session_state["password_correct"]:
-        st.error("❌ Hatalı şifre / Incorrect password")
+        st.error("❌ Hatalı şifre")
     
     st.markdown("---")
-    st.caption("Kariyer.net Finans Ekibi © 2026")
+    st.caption("© 2026 Kariyer.net Finans Ekibi")
     
     return False
 
 
 def require_auth():
-    """Decorator-style function to require authentication.
+    """Kimlik doğrulama gerektiren fonksiyon.
     
-    Call at the top of main() in each page:
+    Her sayfanın main() fonksiyonunda çağrılmalı:
         if not require_auth():
             st.stop()
     """

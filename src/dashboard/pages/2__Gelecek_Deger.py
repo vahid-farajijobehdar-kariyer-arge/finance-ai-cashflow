@@ -2,6 +2,7 @@
 💰 Gelecek Değer Hesaplayıcı
 
 Banka faiz oranları ile mevduat gelecek değerini hesaplayın.
+Yüklenen dosyalardan aylık/çeyreklik net tutarlar ile projeksiyon yapın.
 """
 
 import streamlit as st
@@ -11,219 +12,318 @@ import plotly.graph_objects as go
 from pathlib import Path
 import sys
 
-# Add project root to path for imports
+# Proje kök dizinini yola ekle
 PROJECT_ROOT = Path(__file__).parent.parent.parent.resolve()
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from processing.future_value import FutureValueCalculator, DEPOSIT_RATES
-from storage.metadata import MetadataManager
+from ingestion.reader import BankFileReader
+from processing.commission_control import add_commission_control
+from processing.calculator import filter_successful_transactions
 
-# Import auth module
+# Kimlik doğrulama modülünü ekle
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from auth import check_password
 
+# Veri yolları
+RAW_PATH = PROJECT_ROOT.parent / "data" / "raw"
+
 
 def init_calculator():
-    """Initialize future value calculator."""
+    """Gelecek değer hesaplayıcısını başlat."""
     if "fv_calculator" not in st.session_state:
         st.session_state.fv_calculator = FutureValueCalculator()
     return st.session_state.fv_calculator
 
 
-def render_single_deposit(calculator: FutureValueCalculator):
-    """Render single deposit future value calculator."""
+@st.cache_data
+def yukle_veri():
+    """Tüm banka dosyalarını yükle ve işle."""
+    if not RAW_PATH.exists():
+        return None
+    
+    reader = BankFileReader()
+    
+    try:
+        df = reader.read_all_files(RAW_PATH)
+    except Exception:
+        return None
+    
+    if df is None or df.empty:
+        return None
+    
+    # Gerekli sütun kontrolü
+    if "bank_name" not in df.columns:
+        return None
+    
+    # Temizle ve işle
+    df = df.reset_index(drop=True)
+    df = df.loc[:, ~df.columns.duplicated()]
+    df = filter_successful_transactions(df)
+    df = add_commission_control(df)
+    
+    return df
+
+
+def hesapla_aylik_toplamlar(df: pd.DataFrame) -> pd.DataFrame:
+    """Aylık bazda toplamları hesapla."""
+    df = df.copy()
+    df["_tarih"] = pd.to_datetime(df["transaction_date"], errors="coerce")
+    df["_ay_yil"] = df["_tarih"].dt.to_period("M")
+    
+    aylik = df.groupby("_ay_yil").agg({
+        "gross_amount": "sum",
+        "commission_amount": "sum",
+        "net_amount": "sum"
+    }).reset_index()
+    
+    aylik.columns = ["Dönem", "Brüt Tutar", "Komisyon", "Net Tutar"]
+    aylik["Dönem"] = aylik["Dönem"].astype(str)
+    
+    return aylik
+
+
+def hesapla_ceyreklik_toplamlar(df: pd.DataFrame) -> pd.DataFrame:
+    """Çeyreklik bazda toplamları hesapla."""
+    df = df.copy()
+    df["_tarih"] = pd.to_datetime(df["transaction_date"], errors="coerce")
+    df["_ceyrek"] = df["_tarih"].dt.to_period("Q")
+    
+    ceyreklik = df.groupby("_ceyrek").agg({
+        "gross_amount": "sum",
+        "commission_amount": "sum",
+        "net_amount": "sum"
+    }).reset_index()
+    
+    ceyreklik.columns = ["Dönem", "Brüt Tutar", "Komisyon", "Net Tutar"]
+    ceyreklik["Dönem"] = ceyreklik["Dönem"].astype(str)
+    
+    return ceyreklik
+
+
+def render_veri_bazli_projeksiyon(calculator: FutureValueCalculator):
+    """Yüklenen veriler ile projeksiyon yap."""
+    st.subheader("📊 Veri Bazlı Gelecek Değer Projeksiyonu")
+    
+    # Veri yükle
+    df = yukle_veri()
+    
+    if df is None or df.empty:
+        st.warning("""
+        ⚠️ **Veri Bulunamadı**
+        
+        Gelecek değer projeksiyonu yapabilmek için önce banka dosyalarını yüklemeniz gerekmektedir.
+        
+        👉 **"📤 Dosya Yükle"** sayfasından dosyalarınızı yükleyin.
+        """)
+        
+        st.info("""
+        💡 **İpucu:** Desteklenen dosya formatları:
+        - Excel (.xlsx, .xls)
+        - CSV (.csv)
+        
+        Dosya isimleri banka adını içermelidir (örn: "Akbank_2025.xlsx", "Garanti_rapor.csv")
+        """)
+        return
+    
+    # Özet metrikler
+    toplam_brut = df["gross_amount"].sum()
+    toplam_komisyon = df["commission_amount"].sum()
+    toplam_net = df["net_amount"].sum()
+    
+    st.success(f"✅ **{len(df):,}** işlem yüklendi")
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Toplam Brüt", f"₺{toplam_brut:,.2f}")
+    col2.metric("Toplam Komisyon", f"₺{toplam_komisyon:,.2f}")
+    col3.metric("Toplam Net", f"₺{toplam_net:,.2f}")
+    
+    st.markdown("---")
+    
+    # Dönem seçimi
+    donem_tipi = st.radio(
+        "Dönem Tipi",
+        ["Aylık", "Çeyreklik", "Toplam"],
+        horizontal=True
+    )
+    
+    if donem_tipi == "Aylık":
+        donem_df = hesapla_aylik_toplamlar(df)
+    elif donem_tipi == "Çeyreklik":
+        donem_df = hesapla_ceyreklik_toplamlar(df)
+    else:
+        donem_df = pd.DataFrame([{
+            "Dönem": "Toplam",
+            "Brüt Tutar": toplam_brut,
+            "Komisyon": toplam_komisyon,
+            "Net Tutar": toplam_net
+        }])
+    
+    if donem_df.empty:
+        st.warning("⚠️ Seçilen dönem için veri bulunamadı.")
+        return
+    
+    # Dönem tablosu
+    st.markdown("### 📋 Dönem Bazlı Toplamlar")
+    st.dataframe(
+        donem_df.style.format({
+            "Brüt Tutar": "₺{:,.2f}",
+            "Komisyon": "₺{:,.2f}",
+            "Net Tutar": "₺{:,.2f}"
+        }),
+        hide_index=True,
+        use_container_width=True
+    )
+    
+    st.markdown("---")
+    
+    # Projeksiyon parametreleri
+    st.markdown("### 💰 Projeksiyon Parametreleri")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        yatirim_tutari = st.selectbox(
+            "Yatırım Yapılacak Tutar",
+            ["Net Tutar Toplamı", "Brüt Tutar Toplamı", "Manuel Giriş"]
+        )
+        
+        if yatirim_tutari == "Net Tutar Toplamı":
+            anapara = donem_df["Net Tutar"].sum()
+        elif yatirim_tutari == "Brüt Tutar Toplamı":
+            anapara = donem_df["Brüt Tutar"].sum()
+        else:
+            anapara = st.number_input("Anapara (₺)", min_value=0.0, value=100000.0, step=10000.0)
+    
+    with col2:
+        faiz_orani = st.slider(
+            "Yıllık Faiz Oranı (%)",
+            min_value=20.0,
+            max_value=60.0,
+            value=42.0,
+            step=0.5
+        ) / 100
+    
+    with col3:
+        vade_ay = st.selectbox(
+            "Vade (Ay)",
+            [3, 6, 9, 12, 18, 24, 36],
+            index=3
+        )
+    
+    # Hesaplama
+    st.markdown("---")
+    st.markdown("### 📈 Projeksiyon Sonuçları")
+    
+    basit_sonuc = calculator.calculate_simple_interest(anapara, faiz_orani, vade_ay)
+    bilesik_sonuc = calculator.calculate_compound_interest(anapara, faiz_orani, vade_ay)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 📊 Basit Faiz")
+        st.metric("Anapara", f"₺{anapara:,.2f}")
+        st.metric("Gelecek Değer", f"₺{basit_sonuc['future_value']:,.2f}")
+        st.metric("Faiz Geliri", f"₺{basit_sonuc['interest_earned']:,.2f}", 
+                  delta=f"+{basit_sonuc['effective_rate']*100:.1f}%")
+    
+    with col2:
+        st.markdown("#### 📊 Bileşik Faiz")
+        st.metric("Anapara", f"₺{anapara:,.2f}")
+        st.metric("Gelecek Değer", f"₺{bilesik_sonuc['future_value']:,.2f}")
+        st.metric("Faiz Geliri", f"₺{bilesik_sonuc['interest_earned']:,.2f}",
+                  delta=f"+{bilesik_sonuc['effective_rate']*100:.1f}%")
+    
+    # Grafik
+    st.markdown("---")
+    
+    aylar = list(range(1, vade_ay + 1))
+    basit_degerler = [anapara * (1 + faiz_orani * m / 12) for m in aylar]
+    bilesik_degerler = [anapara * ((1 + faiz_orani / 12) ** m) for m in aylar]
+    
+    fig = go.Figure()
+    
+    fig.add_trace(go.Scatter(
+        x=aylar, y=basit_degerler,
+        mode="lines+markers", name="Basit Faiz", line=dict(color="blue")
+    ))
+    
+    fig.add_trace(go.Scatter(
+        x=aylar, y=bilesik_degerler,
+        mode="lines+markers", name="Bileşik Faiz", line=dict(color="green")
+    ))
+    
+    fig.add_hline(y=anapara, line_dash="dash", line_color="gray", annotation_text="Anapara")
+    
+    fig.update_layout(
+        title="Yatırım Değeri Büyümesi",
+        xaxis_title="Ay",
+        yaxis_title="Değer (₺)"
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def render_tek_yatirim(calculator: FutureValueCalculator):
+    """Tek seferlik yatırım hesaplayıcı."""
     st.subheader("💵 Tek Seferlik Yatırım")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        principal = st.number_input(
-            "Anapara (₺)",
-            min_value=0.0,
-            value=100000.0,
-            step=10000.0,
-            format="%.2f"
+        anapara = st.number_input(
+            "Anapara (₺)", min_value=0.0, value=100000.0, step=10000.0, format="%.2f"
         )
     
     with col2:
-        banks = calculator.get_all_banks()
-        selected_bank = st.selectbox("Banka", banks)
+        bankalar = calculator.get_all_banks()
+        if not bankalar:
+            bankalar = ["Ziraat", "Vakıfbank", "Akbank", "Garanti", "İşbank", "Yapı Kredi"]
+        secili_banka = st.selectbox("Banka", bankalar)
     
     with col3:
-        available_rates = calculator.get_rates_for_bank(selected_bank)
-        terms = sorted(set(r.term_months for r in available_rates))
-        term_months = st.selectbox("Vade (Ay)", terms if terms else [3, 6, 12])
+        mevcut_oranlar = calculator.get_rates_for_bank(secili_banka)
+        vadeler = sorted(set(r.term_months for r in mevcut_oranlar)) if mevcut_oranlar else [3, 6, 12]
+        vade_ay = st.selectbox("Vade (Ay)", vadeler)
     
-    # Get rate for selected bank and term
-    rate = None
-    for r in available_rates:
-        if r.term_months == term_months:
-            rate = r.rate_annual
+    oran = 0.40
+    for r in mevcut_oranlar:
+        if r.term_months == vade_ay:
+            oran = r.rate_annual
             break
     
-    if rate is None:
-        rate = 0.40  # Default
+    st.info(f"📊 **{secili_banka}** - {vade_ay} Aylık Yıllık Faiz Oranı: **%{oran*100:.1f}**")
     
-    st.markdown(f"**Yıllık Faiz Oranı:** %{rate*100:.1f}")
-    
-    # Calculate
     col1, col2 = st.columns(2)
     
     with col1:
         st.markdown("#### Basit Faiz")
-        simple_result = calculator.calculate_simple_interest(principal, rate, term_months)
-        
-        st.metric("Gelecek Değer", f"₺{simple_result['future_value']:,.2f}")
-        st.metric("Faiz Geliri", f"₺{simple_result['interest_earned']:,.2f}")
-        st.metric("Efektif Oran", f"%{simple_result['effective_rate']*100:.2f}")
+        basit_sonuc = calculator.calculate_simple_interest(anapara, oran, vade_ay)
+        st.metric("Gelecek Değer", f"₺{basit_sonuc['future_value']:,.2f}")
+        st.metric("Faiz Geliri", f"₺{basit_sonuc['interest_earned']:,.2f}")
     
     with col2:
         st.markdown("#### Bileşik Faiz")
-        compound_result = calculator.calculate_compound_interest(principal, rate, term_months)
-        
-        st.metric("Gelecek Değer", f"₺{compound_result['future_value']:,.2f}")
-        st.metric("Faiz Geliri", f"₺{compound_result['interest_earned']:,.2f}")
-        st.metric("Efektif Oran", f"%{compound_result['effective_rate']*100:.2f}")
-    
-    # Comparison chart
-    st.markdown("---")
-    st.markdown("#### 📊 Banka Karşılaştırması")
-    
-    best_options = calculator.calculate_best_option(principal, term_months)[:10]
-    
-    if best_options:
-        df = pd.DataFrame(best_options)
-        
-        fig = px.bar(
-            df,
-            x="bank_name",
-            y="total_interest",
-            color="annual_rate",
-            title=f"En İyi Mevduat Seçenekleri ({term_months} Ay)",
-            labels={"total_interest": "Faiz Geliri (₺)", "bank_name": "Banka"},
-            color_continuous_scale="Greens",
-            text_auto=".2s"
-        )
-        fig.update_layout(xaxis_tickangle=-45)
-        st.plotly_chart(fig, key="bank_comparison")
-        
-        # Table
-        st.dataframe(
-            df[["bank_name", "term_months", "annual_rate", "future_value", "total_interest"]].style.format({
-                "annual_rate": "{:.1%}",
-                "future_value": "₺{:,.2f}",
-                "total_interest": "₺{:,.2f}"
-            }),
-            hide_index=True
-        )
+        bilesik_sonuc = calculator.calculate_compound_interest(anapara, oran, vade_ay)
+        st.metric("Gelecek Değer", f"₺{bilesik_sonuc['future_value']:,.2f}")
+        st.metric("Faiz Geliri", f"₺{bilesik_sonuc['interest_earned']:,.2f}")
 
 
-def render_monthly_projection(calculator: FutureValueCalculator):
-    """Render monthly cash flow projection."""
-    st.subheader("📅 Aylık Nakit Akışı Projeksiyonu")
-    
-    st.markdown("""
-    Aylık net tutarları yatırıma dönüştürürseniz ne kadar kazanabilirsiniz?
-    """)
-    
-    # Input monthly amounts
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
-                  "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
-        
-        st.markdown("**Aylık Net Tutarlar:**")
-        monthly_amounts = []
-        
-        # Default values (sample)
-        defaults = [50000, 55000, 60000, 58000, 62000, 65000, 
-                   70000, 68000, 72000, 75000, 80000, 85000]
-        
-        for i, month in enumerate(months):
-            amount = st.number_input(
-                month, 
-                min_value=0.0, 
-                value=float(defaults[i]), 
-                step=1000.0,
-                key=f"month_{i}"
-            )
-            monthly_amounts.append((month, amount))
-    
-    with col2:
-        annual_rate = st.slider(
-            "Yıllık Faiz Oranı",
-            min_value=0.20,
-            max_value=0.60,
-            value=0.40,
-            step=0.01,
-            format="%.0f%%"
-        )
-        
-        projection_months = st.slider(
-            "Projeksiyon Süresi (Ay)",
-            min_value=6,
-            max_value=36,
-            value=12,
-            step=3
-        )
-        
-        # Calculate projection
-        result = calculator.project_monthly_deposits(
-            monthly_amounts, 
-            annual_rate, 
-            projection_months
-        )
-        
-        st.markdown("---")
-        st.markdown("### 📊 Projeksiyon Sonuçları")
-        
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Toplam Anapara", f"₺{result['total_principal']:,.2f}")
-        c2.metric("Gelecek Değer", f"₺{result['total_future_value']:,.2f}")
-        c3.metric("Toplam Faiz", f"₺{result['total_interest']:,.2f}", 
-                  delta=f"+{result['total_interest']/result['total_principal']*100:.1f}%")
-    
-    # Chart
-    if result["projections"]:
-        proj_df = pd.DataFrame(result["projections"])
-        
-        fig = go.Figure()
-        
-        fig.add_trace(go.Bar(
-            x=proj_df["month"],
-            y=proj_df["deposit_amount"],
-            name="Anapara",
-            marker_color="steelblue"
-        ))
-        
-        fig.add_trace(go.Bar(
-            x=proj_df["month"],
-            y=proj_df["interest_earned"],
-            name="Faiz Geliri",
-            marker_color="green"
-        ))
-        
-        fig.update_layout(
-            title="Aylık Yatırım ve Faiz Geliri",
-            xaxis_title="Ay",
-            yaxis_title="Tutar (₺)",
-            barmode="stack"
-        )
-        
-        st.plotly_chart(fig, key="monthly_projection")
-
-
-def render_rates_table(calculator: FutureValueCalculator):
-    """Render deposit rates table."""
+def render_faiz_oranlari(calculator: FutureValueCalculator):
+    """Mevduat faiz oranları tablosu."""
     st.subheader("📋 Mevduat Faiz Oranları")
     
-    st.markdown("""
-    **Not:** Bu oranlar yaklaşık değerlerdir ve güncel olmayabilir.
-    """)
+    if not DEPOSIT_RATES:
+        st.warning("""
+        ⚠️ **Faiz Oranları Tanımlanmamış**
+        
+        Mevduat faiz oranları henüz sisteme yüklenmemiş.
+        """)
+        return
     
-    # Create rates DataFrame
+    st.info("ℹ️ Bu oranlar yaklaşık değerlerdir ve güncel olmayabilir.")
+    
     data = []
     for rate in DEPOSIT_RATES:
         data.append({
@@ -234,10 +334,12 @@ def render_rates_table(calculator: FutureValueCalculator):
     
     df = pd.DataFrame(data)
     
-    # Pivot table
+    if df.empty:
+        st.warning("⚠️ Gösterilecek faiz oranı bulunamadı.")
+        return
+    
     pivot = df.pivot(index="Banka", columns="Vade (Ay)", values="Yıllık Oran")
     
-    # Heatmap
     fig = px.imshow(
         pivot.values * 100,
         x=[f"{c} Ay" for c in pivot.columns],
@@ -249,108 +351,45 @@ def render_rates_table(calculator: FutureValueCalculator):
         aspect="auto"
     )
     fig.update_layout(height=400)
-    st.plotly_chart(fig, key="rates_heatmap")
+    st.plotly_chart(fig, use_container_width=True)
     
-    # Table
-    st.dataframe(
-        pivot.style.format("{:.1%}"),
-        height=350
-    )
-
-
-def render_file_projection(calculator: FutureValueCalculator):
-    """Render projection for uploaded files."""
-    st.subheader("📁 Dosya Bazlı Projeksiyon")
-    
-    # Initialize metadata manager
-    if "metadata_manager" not in st.session_state:
-        st.session_state.metadata_manager = MetadataManager()
-    
-    metadata_manager = st.session_state.metadata_manager
-    files = metadata_manager.get_all_files()
-    
-    if not files:
-        st.info("Henüz dosya yüklenmedi. Önce '📤 Dosya Yükle' sayfasından dosya yükleyin.")
-        return
-    
-    # Select file
-    file_options = {f"{f.original_name} ({f.file_id})": f for f in files}
-    selected_key = st.selectbox("Dosya Seçin", list(file_options.keys()))
-    
-    if selected_key:
-        file = file_options[selected_key]
-        
-        st.markdown(f"""
-        **Dosya:** {file.original_name}  
-        **Toplam Tutar:** ₺{file.total_amount:,.2f}  
-        **Toplam Komisyon:** ₺{file.total_commission:,.2f}  
-        **Net Tutar:** ₺{file.total_amount - file.total_commission:,.2f}
-        """)
-        
-        # Calculate projection on net amount
-        net_amount = file.total_amount - file.total_commission
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            rate = st.slider("Yıllık Oran", 0.20, 0.60, 0.40, 0.01, format="%.0f%%", key="file_rate")
-        with col2:
-            months = st.slider("Vade (Ay)", 3, 36, 12, 3, key="file_months")
-        
-        result = calculator.calculate_compound_interest(net_amount, rate, months)
-        
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Net Tutar (Anapara)", f"₺{result['principal']:,.2f}")
-        c2.metric("Gelecek Değer", f"₺{result['future_value']:,.2f}")
-        c3.metric("Faiz Geliri", f"₺{result['interest_earned']:,.2f}")
-        
-        # Save projection to metadata
-        if st.button("💾 Projeksiyonu Kaydet"):
-            metadata_manager.update_file(file.file_id, future_value={
-                "principal": result["principal"],
-                "future_value": result["future_value"],
-                "interest_earned": result["interest_earned"],
-                "annual_rate": rate,
-                "months": months,
-                "calculated_at": pd.Timestamp.now().isoformat()
-            })
-            st.success("✅ Projeksiyon kaydedildi")
+    st.dataframe(pivot.style.format("{:.1%}"), height=350, use_container_width=True)
 
 
 def main():
     st.set_page_config(
-        page_title="Gelecek Değer - Nakit Akış Paneli",
-        page_icon="💰",
+        page_title="Gelecek Değer - Kariyer.net Finans",
+        page_icon="💹",
         layout="wide"
     )
     
-    # Require authentication
     if not check_password():
-        return
+        st.stop()
     
-    st.title("💰 Gelecek Değer Hesaplayıcı")
+    st.title("💹 Gelecek Değer Hesaplayıcı")
+    st.markdown("**Kariyer.net Finans - Mevduat ve Yatırım Projeksiyon Aracı**")
     st.markdown("---")
     
     calculator = init_calculator()
     
-    tab1, tab2, tab3, tab4 = st.tabs([
+    sekmeler = st.tabs([
+        "📊 Veri Bazlı Projeksiyon",
         "💵 Tek Yatırım",
-        "📅 Aylık Projeksiyon", 
-        "📋 Faiz Oranları",
-        "📁 Dosya Projeksiyonu"
+        "📋 Faiz Oranları"
     ])
     
-    with tab1:
-        render_single_deposit(calculator)
+    with sekmeler[0]:
+        render_veri_bazli_projeksiyon(calculator)
     
-    with tab2:
-        render_monthly_projection(calculator)
+    with sekmeler[1]:
+        render_tek_yatirim(calculator)
     
-    with tab3:
-        render_rates_table(calculator)
+    with sekmeler[2]:
+        render_faiz_oranlari(calculator)
     
-    with tab4:
-        render_file_projection(calculator)
+    # Footer
+    st.markdown("---")
+    st.caption("© 2026 Kariyer.net Finans Ekibi")
 
 
 if __name__ == "__main__":

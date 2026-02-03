@@ -1,7 +1,10 @@
 """
-📤 Dosya Yükle
+📤 Dosya Yükle - Kariyer.net Finans
 
-Banka CSV/Excel dosyalarını yükleyin, analiz edin ve komisyon kontrolü yapın.
+Banka POS ekstre dosyalarını yükleyin ve analiz edin.
+Desteklenen formatlar: Excel (.xlsx, .xls), CSV
+
+© 2026 Kariyer.net Finans Ekibi
 """
 
 import logging
