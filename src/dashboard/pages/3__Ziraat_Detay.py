@@ -62,87 +62,191 @@ def display_summary_metrics(df: pd.DataFrame):
         st.metric("Ortalama Oran", f"%{avg_rate:.2f}")
 
 
-def display_pesin_card_analysis(df: pd.DataFrame):
-    """Display card type breakdown for Peşin transactions."""
-    st.subheader("💳 Peşin İşlemler - Kart Tipi Analizi")
+def detect_card_issuer_bank(card_info: str) -> str:
+    """Kart bilgisinden kartı veren bankayı tespit et.
     
-    # Filter for Peşin (installment = 1 or 0)
+    Args:
+        card_info: Kart tipi, kart numarası veya kart açıklaması
+        
+    Returns:
+        Banka adı veya 'Ziraat' (varsayılan)
+    """
+    if pd.isna(card_info):
+        return "Ziraat (Varsayılan)"
+    
+    card_str = str(card_info).upper()
+    
+    # Banka tanımlama kuralları
+    bank_patterns = {
+        "Akbank": ["AKBANK", "AXS", "AXESS"],
+        "Garanti": ["GARANTİ", "GARANTI", "BONUS", "MILES"],
+        "Yapı Kredi": ["YAPI KREDİ", "YAPI KREDI", "YKB", "WORLD"],
+        "İş Bankası": ["İŞ BANK", "IS BANK", "ISBANK", "MAXIMUM"],
+        "Halkbank": ["HALK", "PARAF"],
+        "Vakıfbank": ["VAKIF", "WORLD"],
+        "QNB": ["QNB", "FİNANS", "FINANS", "CARDFINANS"],
+        "Denizbank": ["DENİZ", "DENIZ", "BONUS"],
+        "TEB": ["TEB", "ENPARA"],
+        "ING": ["ING", "TURUNCU"],
+        "HSBC": ["HSBC"],
+        "Ziraat": ["ZİRAAT", "ZIRAAT", "BANKKART"],
+    }
+    
+    for bank, patterns in bank_patterns.items():
+        for pattern in patterns:
+            if pattern in card_str:
+                return bank
+    
+    # Kart numarasından BIN analizi (ilk 6 hane)
+    # Bazı yaygın BIN aralıkları
+    if card_str.replace(" ", "").isdigit() and len(card_str.replace(" ", "")) >= 6:
+        bin_code = card_str.replace(" ", "")[:6]
+        # Bu genellikle kart numarası maskeli gelir, BIN kullanılamaz
+        pass
+    
+    return "Ziraat (Varsayılan)"
+
+
+def display_pesin_card_analysis(df: pd.DataFrame):
+    """Peşin işlemlerde kart tipi ve kartı veren banka analizi."""
+    st.subheader("💳 Peşin İşlemler - Kart Analizi")
+    
+    # Peşin işlemleri filtrele (taksit = 1 veya 0)
     pesin_df = df[df['installment_count'].isin([0, 1])].copy()
     
     if len(pesin_df) == 0:
         st.warning("Peşin işlem bulunamadı.")
         return
     
-    st.info(f"Toplam Peşin İşlem: **{len(pesin_df):,}**")
+    # Özet metrikler
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Peşin İşlem Sayısı", f"{len(pesin_df):,}")
+    with col2:
+        pesin_toplam = pesin_df['gross_amount'].sum() if 'gross_amount' in pesin_df.columns else 0
+        st.metric("Peşin Toplam Tutar", f"₺{pesin_toplam:,.2f}")
+    with col3:
+        pesin_komisyon = pesin_df['commission_amount'].sum() if 'commission_amount' in pesin_df.columns else 0
+        st.metric("Peşin Komisyon", f"₺{pesin_komisyon:,.2f}")
     
-    # Check for card_type column
-    card_col = None
-    possible_cols = ['card_type', 'kart_tipi', 'kart_türü', 'card_brand', 'kart_markası', 
-                     'Kart Tipi', 'KART TİPİ', 'Card Type']
+    st.markdown("---")
     
-    for col in possible_cols:
-        if col in df.columns:
-            card_col = col
-            break
+    # Kart sütunlarını bul
+    card_columns = []
+    for col in pesin_df.columns:
+        col_lower = col.lower()
+        if any(x in col_lower for x in ['kart', 'card', 'brand', 'issuer', 'bin']):
+            card_columns.append(col)
     
-    # Also check for card-related columns in raw data
-    card_related = [c for c in df.columns if any(x in c.lower() for x in ['kart', 'card', 'visa', 'master', 'troy'])]
+    # Kartı veren banka analizi
+    st.subheader("🏦 Kartı Veren Banka Analizi")
+    st.markdown("""
+    **Açıklama:** Ziraat POS'undan geçen işlemlerde hangi bankaların kartları kullanılıyor?
+    Varsayılan olarak Ziraat kabul edilir, diğer bankalar kart bilgisinden tespit edilir.
+    """)
     
-    if card_col:
-        col1, col2 = st.columns(2)
+    # Kart bilgisinden banka tespit et
+    if card_columns:
+        # En uygun kart sütununu seç
+        card_col = card_columns[0]
+        for col in card_columns:
+            if 'tipi' in col.lower() or 'type' in col.lower():
+                card_col = col
+                break
         
-        with col1:
-            # Pie chart for card types
-            card_counts = pesin_df[card_col].value_counts()
-            fig = px.pie(
-                values=card_counts.values.tolist(),
-                names=card_counts.index.tolist(),
-                title="Peşin İşlemler - Kart Tipi Dağılımı",
-                hole=0.4
-            )
-            st.plotly_chart(fig, use_container_width=True)
+        pesin_df['kart_bankasi'] = pesin_df[card_col].apply(detect_card_issuer_bank)
         
-        with col2:
-            # Bar chart for amounts by card type
-            if 'gross_amount' in pesin_df.columns:
-                card_amounts = pesin_df.groupby(card_col)['gross_amount'].sum().sort_values(ascending=True)
-                fig = px.bar(
-                    x=card_amounts.values.tolist(),
-                    y=card_amounts.index.tolist(),
-                    orientation='h',
-                    title="Peşin İşlemler - Kart Tipine Göre Tutar",
-                    labels={'x': 'Tutar (₺)', 'y': 'Kart Tipi'}
-                )
-                st.plotly_chart(fig, use_container_width=True)
-        
-        # Detailed table
-        st.markdown("**Kart Tipi Detaylı Tablo:**")
-        agg_dict = {}
-        if 'gross_amount' in pesin_df.columns:
-            agg_dict['gross_amount'] = ['count', 'sum', 'mean']
-        if 'commission_amount' in pesin_df.columns:
-            agg_dict['commission_amount'] = 'sum'
-        if agg_dict:
-            card_summary = pesin_df.groupby(card_col).agg(agg_dict).round(2)
-            card_summary.columns = ['_'.join(col).strip('_') for col in card_summary.columns.values]
-            st.dataframe(card_summary, use_container_width=True)
-        
-    elif card_related:
-        st.info(f"Kart bilgisi içeren sütunlar: {card_related}")
-        
-        # Try to analyze card-related columns
-        for col in card_related[:3]:  # First 3 columns
-            if pesin_df[col].notna().sum() > 0:
-                st.markdown(f"**{col} Dağılımı:**")
-                value_counts = pesin_df[col].value_counts().head(10)
-                st.bar_chart(value_counts)
+        st.info(f"Kullanılan sütun: **{card_col}**")
     else:
-        st.warning("Kart tipi bilgisi bulunamadı. Mevcut sütunlar aşağıda listelenmiştir.")
-        st.write("Mevcut sütunlar:", list(df.columns))
+        # Kart sütunu yoksa tüm işlemleri Ziraat say
+        st.warning("Kart tipi sütunu bulunamadı. Tüm işlemler Ziraat kartı olarak varsayılıyor.")
+        pesin_df['kart_bankasi'] = "Ziraat (Varsayılan)"
+    
+    # Banka bazlı özet
+    bank_summary = pesin_df.groupby('kart_bankasi').agg({
+        'gross_amount': ['count', 'sum'],
+        'commission_amount': 'sum'
+    }).round(2)
+    bank_summary.columns = ['İşlem Sayısı', 'Toplam Tutar (₺)', 'Komisyon (₺)']
+    bank_summary = bank_summary.sort_values('Toplam Tutar (₺)', ascending=False)
+    
+    # Yüzde hesapla
+    bank_summary['Tutar %'] = (bank_summary['Toplam Tutar (₺)'] / bank_summary['Toplam Tutar (₺)'].sum() * 100).round(1)
+    bank_summary['İşlem %'] = (bank_summary['İşlem Sayısı'] / bank_summary['İşlem Sayısı'].sum() * 100).round(1)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Pasta grafik - tutar bazlı
+        fig = px.pie(
+            values=bank_summary['Toplam Tutar (₺)'].values,
+            names=bank_summary.index.tolist(),
+            title="Kartı Veren Banka - Tutar Dağılımı",
+            hole=0.4
+        )
+        fig.update_traces(textposition='inside', textinfo='percent+label')
+        st.plotly_chart(fig, use_container_width=True, key="pie_bank_amount")
+    
+    with col2:
+        # Bar grafik - işlem sayısı
+        chart_df = pd.DataFrame({
+            'Banka': bank_summary.index,
+            'İşlem Sayısı': bank_summary['İşlem Sayısı'].values
+        })
+        fig = px.bar(
+            chart_df,
+            x='Banka',
+            y='İşlem Sayısı',
+            title="Kartı Veren Banka - İşlem Sayısı",
+            color='İşlem Sayısı',
+            color_continuous_scale='Blues'
+        )
+        st.plotly_chart(fig, use_container_width=True, key="bar_bank_count")
+    
+    # Detaylı tablo
+    st.markdown("### 📋 Detaylı Tablo")
+    
+    # Formatla
+    display_df = bank_summary.reset_index()
+    display_df.columns = ['Kartı Veren Banka', 'İşlem Sayısı', 'Toplam Tutar (₺)', 'Komisyon (₺)', 'Tutar %', 'İşlem %']
+    
+    st.dataframe(
+        display_df.style.format({
+            'Toplam Tutar (₺)': '₺{:,.2f}',
+            'Komisyon (₺)': '₺{:,.2f}',
+            'Tutar %': '%{:.1f}',
+            'İşlem %': '%{:.1f}',
+            'İşlem Sayısı': '{:,}'
+        }),
+        use_container_width=True,
+        hide_index=True
+    )
+    
+    # Ziraat dışı kartlar uyarısı
+    non_ziraat = bank_summary[~bank_summary.index.str.contains('Ziraat', case=False)]
+    if len(non_ziraat) > 0:
+        non_ziraat_total = non_ziraat['Toplam Tutar (₺)'].sum()
+        non_ziraat_pct = non_ziraat['Tutar %'].sum()
+        st.warning(f"""
+        ⚠️ **Diğer Banka Kartları Analizi:**
         
-        # Show sample of pesin data
-        st.markdown("**Peşin İşlem Örnek Verisi:**")
-        st.dataframe(pesin_df.head(10), use_container_width=True)
+        Ziraat dışı banka kartlarıyla yapılan peşin işlemler:
+        - **Tutar:** ₺{non_ziraat_total:,.2f} ({non_ziraat_pct:.1f}%)
+        - **Banka Sayısı:** {len(non_ziraat)}
+        
+        Bu işlemlerde farklı komisyon oranları uygulanabilir.
+        """)
+    
+    st.markdown("---")
+    
+    # Ham kart verileri (genişletilebilir)
+    with st.expander("🔍 Ham Kart Verileri"):
+        if card_columns:
+            st.markdown(f"**Bulunan kart sütunları:** {card_columns}")
+            for col in card_columns[:3]:
+                st.markdown(f"**{col} değerleri:**")
+                value_counts = pesin_df[col].value_counts().head(15)
+                st.dataframe(value_counts, use_container_width=True)
 
 
 def display_installment_analysis(df: pd.DataFrame):
