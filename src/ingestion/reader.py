@@ -6,6 +6,7 @@ Supports bank-specific formats including Vakıfbank semicolon-delimited CSV.
 
 from pathlib import Path
 from typing import Optional, List
+import math
 import re
 
 import pandas as pd
@@ -62,8 +63,46 @@ def parse_vakifbank_amount(value) -> float:
         return 0.0
 
 
+def normalize_column_name(name: str) -> str:
+    """Normalize column names for robust matching."""
+    if name is None:
+        return ""
+    s = str(name)
+    s = s.replace("\ufeff", "").replace("\xa0", " ").replace("�", "")
+    s = s.strip()
+    if not s:
+        return ""
+    s = s.replace("_", " ").replace("-", " ").replace("/", " ")
+    s = re.sub(r"\s+", " ", s)
+    s = s.lower()
+    s = s.translate(str.maketrans({
+        "ı": "i",
+        "İ": "i",
+        "ş": "s",
+        "Ş": "s",
+        "ğ": "g",
+        "Ğ": "g",
+        "ü": "u",
+        "Ü": "u",
+        "ö": "o",
+        "Ö": "o",
+        "ç": "c",
+        "Ç": "c",
+    }))
+    s = re.sub(r"[^a-z0-9 ]", "", s)
+    return s
+
+
 class BankFileReader:
     """Reads and normalizes bank POS export files."""
+
+    REQUIRED_STANDARD_COLUMNS = {
+        "transaction_date",
+        "gross_amount",
+        "commission_amount",
+        "net_amount",
+        "installment_count",
+    }
 
     def __init__(self, config_path: Path = None):
         """Initialize reader with bank configuration.
@@ -124,6 +163,44 @@ class BankFileReader:
         
         return None
 
+    def detect_bank_by_columns(self, columns: List[str]) -> Optional[str]:
+        """Detect bank based on header columns if filename is not helpful."""
+        normalized_cols = {normalize_column_name(c) for c in columns}
+        normalized_cols.discard("")
+        if not normalized_cols:
+            return None
+
+        best_key = None
+        best_score = 0
+        best_ratio = 0.0
+        best_min_matches = 0
+
+        for bank_key, bank_config in self.banks.items():
+            raw_columns = bank_config.get("raw_columns", {})
+            if not raw_columns:
+                continue
+            normalized_raw = {normalize_column_name(c) for c in raw_columns.keys()}
+            normalized_raw.discard("")
+            if not normalized_raw:
+                continue
+
+            match_count = len(normalized_cols & normalized_raw)
+            if match_count == 0:
+                continue
+
+            ratio = match_count / max(1, len(normalized_raw))
+            min_matches = max(2, min(5, math.ceil(len(normalized_raw) * 0.2)))
+
+            if match_count > best_score or (match_count == best_score and ratio > best_ratio):
+                best_key = bank_key
+                best_score = match_count
+                best_ratio = ratio
+                best_min_matches = min_matches
+
+        if best_key is None or best_score < best_min_matches:
+            return None
+        return best_key
+
     def get_column_mapping(self, bank_key: str) -> dict:
         """Get column name mapping for a specific bank.
         
@@ -159,7 +236,7 @@ class BankFileReader:
         # Auto-detect bank if not specified
         if bank_key is None:
             bank_key = self.detect_bank(file_path)
-        
+
         # Get bank config
         bank_config = self.banks.get(bank_key, {}) if bank_key else {}
         
@@ -170,6 +247,11 @@ class BankFileReader:
             df = self._read_csv(file_path, bank_config)
         else:
             raise ValueError(f"Unsupported file format: {file_path.suffix}")
+
+        # If filename detection failed, try header-based detection
+        if bank_key is None:
+            bank_key = self.detect_bank_by_columns(list(df.columns))
+            bank_config = self.banks.get(bank_key, {}) if bank_key else {}
         
         # Apply column mapping if bank is known
         if bank_key:
@@ -182,7 +264,8 @@ class BankFileReader:
             # Bank not detected - try to extract name from filename
             bank_name = self._extract_bank_name_from_filename(file_path.name)
             df["bank_name"] = bank_name
-        
+
+        df.attrs["bank_key"] = bank_key
         return df
     
     def _extract_bank_name_from_filename(self, filename: str) -> str:
@@ -285,18 +368,47 @@ class BankFileReader:
         """
         column_mapping = self.get_column_mapping(bank_key)
         
-        # Create rename dict for columns that exist in the DataFrame
+        normalized_df_cols = {}
+        for col in df.columns:
+            norm = normalize_column_name(col)
+            if not norm:
+                continue
+            normalized_df_cols.setdefault(norm, []).append(col)
+
         rename_dict = {}
         for original, standard in column_mapping.items():
-            # Handle encoding issues in column names
-            for col in df.columns:
-                if original in str(col) or str(col).replace("�", "ı").replace("�", "ş") == original:
-                    rename_dict[col] = standard
-                    break
-            if original in df.columns:
-                rename_dict[original] = standard
-        
+            norm_original = normalize_column_name(original)
+            if not norm_original:
+                continue
+            candidates = normalized_df_cols.get(norm_original, [])
+            if not candidates:
+                continue
+            if len(candidates) == 1:
+                rename_dict[candidates[0]] = standard
+                continue
+            exact_matches = [
+                c for c in candidates
+                if str(c).strip().lower() == str(original).strip().lower()
+            ]
+            rename_dict[exact_matches[0] if exact_matches else candidates[0]] = standard
+
         return df.rename(columns=rename_dict)
+
+    def get_required_standard_columns(self, bank_key: str) -> List[str]:
+        """Return required standard columns for a bank based on its mapping."""
+        if bank_key not in self.banks:
+            return []
+        mapped = set(self.get_column_mapping(bank_key).values())
+        required = self.REQUIRED_STANDARD_COLUMNS.intersection(mapped)
+        return sorted(required)
+
+    def validate_columns(self, df: pd.DataFrame, bank_key: Optional[str]) -> dict:
+        """Validate required normalized columns exist for a bank."""
+        if not bank_key or bank_key not in self.banks:
+            return {"missing": [], "required": []}
+        required = self.get_required_standard_columns(bank_key)
+        missing = [col for col in required if col not in df.columns]
+        return {"missing": missing, "required": required}
 
     def _apply_bank_transforms(self, df: pd.DataFrame, bank_key: str, bank_config: dict) -> pd.DataFrame:
         """Apply bank-specific data transformations.

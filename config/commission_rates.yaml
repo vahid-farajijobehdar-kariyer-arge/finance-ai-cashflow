@@ -1,58 +1,48 @@
-# Commission Rates by Bank and Installment Count
-# GÜNCELLENEN ORANLAR-v3 - January 2026
-# Rates are decimals: 0.0336 = 3.36%
-# Key format: installment count (1 = Peşin/single payment)
-
 banks:
-  # Vakıfbank - T. VAKIFLAR BANKASI T.A.O.
   vakifbank:
     aliases:
-      - "T. VAKIFLAR BANKASI T.A.O."
-      - "Vakıfbank"
-      - "VAKIFBANK"
+    - T. VAKIFLAR BANKASI T.A.O.
+    - Vakıfbank
+    - VAKIFBANK
     rates:
-      1: 0.0336    # Peşin
+      1: 0.0336
       2: 0.0499
-      3: 0.0690
+      3: 0.069
       4: 0.0875
-      5: 0.1060
-      6: 0.1220
+      5: 0.106
+      6: 0.122
       7: 0.1435
       8: 0.1622
       9: 0.1819
       10: 0.2009
       12: 0.2395
-
-  # Ziraat Bankası
   ziraat:
     aliases:
-      - "ZİRAAT BANKASI"
-      - "ZİRAAT"
-      - "Ziraat"
-      - "T.C. ZİRAAT BANKASI A.Ş."
+    - ZİRAAT BANKASI
+    - ZİRAAT
+    - Ziraat
+    - T.C. ZİRAAT BANKASI A.Ş.
     rates:
-      1: 0.0295    # Peşin
+      1: 0.0295
       2: 0.0489
-      3: 0.0680
+      3: 0.068
       4: 0.0865
-      5: 0.1050
-      6: 0.1210
+      5: 0.105
+      6: 0.121
       7: 0.1425
       8: 0.1612
       9: 0.1809
       10: 0.1999
-
-  # Akbank
   akbank:
     aliases:
-      - "AKBANK T.A.S."
-      - "Akbank"
-      - "AKBANK"
+    - AKBANK T.A.S.
+    - Akbank
+    - AKBANK
     rates:
-      1: 0.0360    # Peşin
+      1: 0.036
       2: 0.0586
       3: 0.0773
-      4: 0.0960
+      4: 0.096
       5: 0.1146
       6: 0.1333
       7: 0.1467
@@ -61,36 +51,32 @@ banks:
       10: 0.2081
       11: 0.2268
       12: 0.2455
-
-  # Garanti BBVA
   garanti:
     aliases:
-      - "T. GARANTI BANKASI A.S."
-      - "Garanti"
-      - "GARANTI"
-      - "Garanti BBVA"
+    - T. GARANTI BANKASI A.S.
+    - Garanti
+    - GARANTI
+    - Garanti BBVA
     rates:
-      1: 0.0365    # Peşin
+      1: 0.0365
       2: 0.0566
       3: 0.0753
-      4: 0.0940
+      4: 0.094
       5: 0.1126
       6: 0.1313
-      7: 0.1500
+      7: 0.15
       8: 0.1687
       9: 0.1874
       10: 0.2061
       11: 0.2248
       12: 0.2435
-
-  # Halkbank
   halkbank:
     aliases:
-      - "T. HALK BANKASI A.S."
-      - "Halkbank"
-      - "HALKBANK"
+    - T. HALK BANKASI A.S.
+    - Halkbank
+    - HALKBANK
     rates:
-      1: 0.0374    # Peşin
+      1: 0.0374
       2: 0.0527
       3: 0.0715
       4: 0.0903
@@ -98,20 +84,18 @@ banks:
       6: 0.1279
       7: 0.1467
       8: 0.1656
-      9: 0.1840
+      9: 0.184
       10: 0.2032
-      11: 0.2220
+      11: 0.222
       12: 0.2408
-
-  # QNB Finansbank
   qnb:
     aliases:
-      - "FINANSBANK A.S."
-      - "QNB"
-      - "QNB Finansbank"
-      - "Finansbank"
+    - FINANSBANK A.S.
+    - QNB
+    - QNB Finansbank
+    - Finansbank
     rates:
-      1: 0.0374    # Peşin
+      1: 0.0374
       2: 0.0561
       3: 0.0748
       4: 0.0935
@@ -122,39 +106,31 @@ banks:
       9: 0.1869
       10: 0.2056
       11: 0.2243
-      12: 0.2430
-
-  # Yapı Kredi
+      12: 0.243
   yapikredi:
     aliases:
-      - "YAPI VE KREDI BANKASI A.S."
-      - "Yapı Kredi"
-      - "YKB"
+    - YAPI VE KREDI BANKASI A.S.
+    - Yapı Kredi
+    - YKB
     rates:
-      1: 0.0373    # Peşin
+      1: 0.0373
       2: 0.0525
-      3: 0.0700
+      3: 0.07
       4: 0.0874
-      5: 0.1050
+      5: 0.105
       6: 0.1225
       7: 0.1399
       8: 0.1575
-      9: 0.1750
+      9: 0.175
       10: 0.1924
-      11: 0.2100
+      11: 0.21
       12: 0.2275
-
-  # İş Bankası
   isbank:
     aliases:
-      - "T. IS BANKASI A.S."
-      - "İş Bankası"
-      - "Isbank"
+    - T. IS BANKASI A.S.
+    - İş Bankası
+    - Isbank
     rates:
-      1: 0.0374    # Peşin
-
-# Anomaly detection settings
+      1: 0.0374
 anomaly:
-  threshold: 0.005  # 0.5% tolerance for rate differences
-  
-# Last updated: 2026-01-29
+  threshold: 0.005

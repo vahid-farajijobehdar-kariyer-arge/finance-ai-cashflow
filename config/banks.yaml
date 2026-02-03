@@ -47,12 +47,13 @@ banks:
     settlement_days: 1
     raw_columns:
       Tarih: transaction_date
+      ISLEM_TARIHI: transaction_date
       VALOR_TARIHI: settlement_date
-      Tutar: gross_amount
-      EO_KES_TUTAR: commission_amount
-      Komisyon: commission_amount_alt
-      Net Tutar: net_amount
-      Taksit Sayısı: installment_count
+      PROVIZYON_TUTAR: gross_amount
+      KOMISYON_TUTAR: commission_amount
+      EO_KES_TUTAR: commission_amount_alt
+      NET_TUTAR: net_amount
+      TAKSIT_SAYI: installment_count
       TAKSIT_SIRA: installment_number
       İşlem Tipi: transaction_type
       ANA_KART_TIPI: card_issuer
