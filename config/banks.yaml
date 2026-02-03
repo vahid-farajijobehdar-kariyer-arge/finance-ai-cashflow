@@ -1,144 +1,184 @@
-# Bank Column Mappings / Banka Sütun Eşleştirmeleri
-# Based on actual data from "2025 - Kredi Kartı Komisyon Analizi.xlsx"
+# Banka Sütun Eşleştirmeleri / Bank Column Mappings
+# Ham veriden analiz edilmiş gerçek sütun isimleri
 
-# Standard schema fields (from Veri sheet):
-# - AY: Month (Ocak, Şubat, etc.)
-# - Tarih: Transaction date
-# - Taksit Sayısı: Installment count (Peşin, 2, 3, ... 12)
-# - Banka Adı: Bank name
-# - Tutar: Gross amount
-# - Oran: Commission rate (decimal, e.g., 0.0374)
-# - Komisyon: Commission amount
-# - Tek Çekim / Taksit: Payment type (Tek Çekim or Taksit)
+# Standart Şema (normalize edilmiş sütunlar):
+# - transaction_date: İşlem tarihi
+# - settlement_date: Hesaba geçiş tarihi
+# - gross_amount: Brüt tutar
+# - commission_amount: Komisyon tutarı
+# - commission_rate: Komisyon oranı (decimal)
+# - net_amount: Net tutar
+# - installment_count: Taksit sayısı
+# - transaction_type: İşlem tipi
+# - card_type: Kart tipi
+# - bank_name: Banka adı
+
+defaults:
+  decimal_separator: "."
+  date_format: "%d/%m/%Y"
+  settlement_days: 1
 
 banks:
-  garanti:
-    name: "Garanti"
-    sheet_name: "Garanti"
-    raw_columns:
-      ISLEMTARIHI: Tarih
-      AY: AY
-      BURUT: Tutar
-      KOMISYON: Komisyon
-      NET: Net Tutar
-      TSAYISI: Taksit Sayısı
-      ISLEMTIPI: İşlem Tipi
+  ziraat:
+    name: "ZİRAAT"
+    display_name: "ZİRAAT BANKASI"
+    file_pattern: "*[Zz]iraat*.xlsx"
     settlement_days: 1
+    # Ham sütun eşleştirmesi (gerçek veriden)
+    raw_columns:
+      Tarih: transaction_date
+      Hesaba Geçiş Tarihi: settlement_date
+      Tutar: gross_amount
+      Komisyon: commission_amount
+      Net Tutar: net_amount
+      Oran: commission_rate
+      Taksit Sayısı: installment_count
+      İşlem Tipi: transaction_type
+      Kart Tipi: card_type
+      Kart No: card_number
+      Üye İşyeri No: merchant_id
+      Terminal No: terminal_id
+      Provizyon Kodu: approval_code
 
   akbank:
     name: "Akbank"
-    sheet_name: "Akbank"
-    raw_columns:
-      ISLEM_TARIHI: Tarih
-      AY: AY
-      PROVIZYON_TUTAR: Tutar
-      KOMISYON_TUTAR: Komisyon
-      NET_TUTAR: Net Tutar
-      TAKSIT_SAYI: Taksit Sayısı
-      ISLEM_TIPI: İşlem Tipi
-      ORAN: Oran
+    display_name: "AKBANK T.A.S."
+    file_pattern: "*[Aa]kbank*.xlsx"
     settlement_days: 1
+    raw_columns:
+      Tarih: transaction_date
+      VALOR_TARIHI: settlement_date
+      Tutar: gross_amount
+      EO_KES_TUTAR: commission_amount
+      Komisyon: commission_amount_alt
+      Net Tutar: net_amount
+      Taksit Sayısı: installment_count
+      TAKSIT_SIRA: installment_number
+      İşlem Tipi: transaction_type
+      ANA_KART_TIPI: card_issuer
+      ALT_KART_TIPI: card_type
+      KART_NO: card_number
+      UYE_ISYERI_NO: merchant_id
+      UYE_ISYERI_ADI: merchant_name
+      TERMINAL_NO: terminal_id
+      PROVIZYON_NO: approval_code
+      GUNSONU_TARIHI: end_of_day_date
+      CURRENCY: currency
+      IBAN: iban
+
+  garanti:
+    name: "Garanti"
+    display_name: "T. GARANTI BANKASI A.S."
+    file_pattern: "*[Gg]aranti*.xlsx"
+    settlement_days: 1
+    raw_columns:
+      Tarih: transaction_date
+      VALOR: settlement_date
+      Tutar: gross_amount
+      Komisyon: commission_amount
+      Net Tutar: net_amount
+      Taksit Sayısı: installment_count
+      İşlem Tipi: transaction_type
+      URUN: card_type
+      GUNSONU: end_of_day_date
+      UYENO: merchant_id
+      TERMINAL: terminal_id
+      BATCHNO: batch_number
+      SUBE: branch_code
+      HESAP: account_number
+      ODULKESINTISI: reward_deduction
+      SERVISKESINTISI: service_deduction
 
   halkbank:
     name: "Halkbank"
-    sheet_name: "Halkbank"
-    raw_columns:
-      İşlem Tarihi: Tarih
-      AY: AY
-      Çözülmüş Alacak Tutarı: Tutar
-      Komisyon Oranı: Oran
-      TAKSİT: Taksit Sayısı
-      İşlem Tipi: İşlem Tipi
+    display_name: "T. HALK BANKASI A.S."
+    file_pattern: "*[Hh]alk*.xlsx"
     settlement_days: 1
-
-  ykb:
-    name: "YKB"
-    sheet_name: "YKB"
     raw_columns:
-      İşlem Tutarı: Tutar
-      Net Tutar: Net Tutar
-      Brüt Tutar: Brüt Tutar
-      AY: AY
-      Taksit Sayısı / Taksit Numarası: Taksit Sayısı
-      ORAN: Oran
-      NET KESİNTİ: Komisyon
-    settlement_days: 1
-
-  ziraat:
-    name: "ZİRAAT"
-    sheet_name: "ZİRAAT"
-    raw_columns:
-      İşlem Tari: Tarih
-      AY: AY
-      Tutar: Tutar
-      Komisyon Tutarı: Komisyon
-      Net Tutar: Net Tutar
-      Taksit Sayısı: Taksit Sayısı
-      Komisyon Oranı: Oran
-    settlement_days: 1
-
-  vakifbank:
-    name: "Vakıfbank"
-    sheet_name: "Vakıfbank"
-    raw_columns:
-      İşlem Tarihi: Tarih
-      AY: AY
-      Brüt Tutar: Tutar
-      Komisyon: Komisyon
-      Net Tutar: Net Tutar
-      Taksit Sayısı: Taksit Sayısı
-      Komisyon Oranı: Oran
-    settlement_days: 1
+      Tarih: transaction_date
+      Valor Tarihi: settlement_date
+      Bekleyen Alacak Tutarı: gross_amount
+      TL Karşılığı: gross_amount_tl
+      Bekleyen Borç Tutarı: commission_amount
+      Alacak Net Bekleyen: net_amount
+      Oran: commission_rate
+      İşlem Tipi: transaction_type
+      Kart Tipi: card_type
+      Uye Adı: merchant_name
+      Uye No: merchant_id
+      Sube Kodu: branch_code
+      İşlem Kodu: transaction_code
+      Host Cevap: host_response
 
   qnb:
     name: "QNB"
-    sheet_name: "QNB"
-    raw_columns:
-      Bloke Tarihi: Tarih
-      Çözülme Tarihi: Hesaba Geçiş Tarihi
-      AY: AY
-      Bekleyen Alacak Tutarı: Tutar
-      Üye İşyeri Ücret Oranı: Oran
+    display_name: "FINANSBANK A.S."
+    file_pattern: "*[Qq][Nn][Bb]*.xls"
     settlement_days: 1
+    raw_columns:
+      Tarih: transaction_date
+      Hesaba Geçiş Tarihi: settlement_date
+      Çözülmüş Alacak Tutarı: gross_amount
+      Çözülmüş Borç Tutarı: commission_amount
+      Oran: commission_rate
+      Taksit Tipi: transaction_type
+      Kart Tipi: card_type
+      Üye Adı: merchant_name
+      Üye No: merchant_id
+      Servis Açıklaması: service_description
+      Host Cevap: host_response
+      Bloke Tipi: block_type
+
+  vakifbank:
+    name: "Vakıfbank"
+    display_name: "T. VAKIFLAR BANKASI T.A.O."
+    file_pattern: "*[Vv]akıf*.csv"
+    delimiter: ";"
+    encoding: "iso-8859-9"
+    skip_rows: 2
+    settlement_days: 1
+    raw_columns:
+      İşlem Tarihi: transaction_date
+      Brüt Tutar: gross_amount
+      Komisyon: commission_amount
+      Net Tutar: net_amount
+      Taksit Sayısı: installment_count
+      Komisyon Oranı: commission_rate
+      Hesaba Geçiş Tarihi: settlement_date
+      İşlem Tipi: transaction_type
+      Kart Tipi: card_type
+      Kart Brand: card_brand
+      Onay Kodu: approval_code
+    transaction_type_map:
+      TEK: "Tek Çekim"
+      TKS: "Taksit"
+      IAD: "İade"
+      PUA: "Puan Harcama"
+      VFT: "Vade Farklı Satış"
+
+  ykb:
+    name: "YKB"
+    display_name: "YAPI VE KREDI BANKASI A.S."
+    file_pattern: "*[Yy][Kk][Bb]*.xlsx"
+    settlement_days: 1
+    raw_columns:
+      İşlem Tarihi: transaction_date
+      Valör Tarihi: settlement_date
+      İşlem Tutarı: gross_amount
+      Brüt Tutar: gross_amount_alt
+      NET KESİNTİ: commission_amount
+      Net Tutar: net_amount
+      ORAN: commission_rate
+      Taksit Sayısı: installment_count
 
   isbankasi:
-    name: "İşbankası"
+    name: "İşbank"
+    display_name: "T. IS BANKASI A.S."
+    file_pattern: "*[Ii]s[Bb]ank*.xlsx"
+    settlement_days: 1
     raw_columns:
-      Tutar: Tutar
-      Taksit: Taksit Sayısı
-
-# Commission rates by bank and installment (from Oranlar sheet)
-# Rates are stored as decimals (e.g., 0.0374 = 3.74%)
-commission_rates:
-  garanti:
-    pesin: 0.0365
-    2: 0.0566
-    3: 0.0753
-    4: 0.0940
-    5: 0.1126
-    6: 0.1313
-    7: 0.1500
-    8: 0.1687
-    9: 0.1874
-    10: 0.2061
-    11: 0.2248
-    12: 0.2435
-    
-  ziraat:
-    pesin: 0.0295
-    2: 0.0489
-    3: 0.0680
-    4: 0.0865
-    5: 0.1050
-    6: 0.1210
-    7: 0.1425
-    8: 0.1612
-    9: 0.1809
-    10: 0.1999
-
-# Default settings
-defaults:
-  settlement_days: 1
-  date_format: "%Y-%m-%d"
-  decimal_separator: ","
-  thousands_separator: "."
+      İşlem Tarihi: transaction_date
+      Tutar: gross_amount
+      Komisyon: commission_amount
+      Net Tutar: net_amount
+      Taksit Sayısı: installment_count

@@ -1,7 +1,7 @@
 """
-💰 Future Value Calculator
+💰 Gelecek Değer Hesaplayıcı
 
-Calculate potential future value of deposits with bank interest rates.
+Banka faiz oranları ile mevduat gelecek değerini hesaplayın.
 """
 
 import streamlit as st
@@ -11,11 +11,13 @@ import plotly.graph_objects as go
 from pathlib import Path
 import sys
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Add project root to path for imports
+PROJECT_ROOT = Path(__file__).parent.parent.parent.resolve()
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
-from src.processing.future_value import FutureValueCalculator, DEPOSIT_RATES
-from src.storage.metadata import MetadataManager
+from processing.future_value import FutureValueCalculator, DEPOSIT_RATES
+from storage.metadata import MetadataManager
 
 
 def init_calculator():
@@ -27,13 +29,13 @@ def init_calculator():
 
 def render_single_deposit(calculator: FutureValueCalculator):
     """Render single deposit future value calculator."""
-    st.subheader("💵 Tek Seferlik Yatırım / Single Deposit")
+    st.subheader("💵 Tek Seferlik Yatırım")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
         principal = st.number_input(
-            "Anapara / Principal (₺)",
+            "Anapara (₺)",
             min_value=0.0,
             value=100000.0,
             step=10000.0,
@@ -42,12 +44,12 @@ def render_single_deposit(calculator: FutureValueCalculator):
     
     with col2:
         banks = calculator.get_all_banks()
-        selected_bank = st.selectbox("Banka / Bank", banks)
+        selected_bank = st.selectbox("Banka", banks)
     
     with col3:
         available_rates = calculator.get_rates_for_bank(selected_bank)
         terms = sorted(set(r.term_months for r in available_rates))
-        term_months = st.selectbox("Vade (Ay) / Term (Months)", terms if terms else [3, 6, 12])
+        term_months = st.selectbox("Vade (Ay)", terms if terms else [3, 6, 12])
     
     # Get rate for selected bank and term
     rate = None
@@ -59,30 +61,30 @@ def render_single_deposit(calculator: FutureValueCalculator):
     if rate is None:
         rate = 0.40  # Default
     
-    st.markdown(f"**Yıllık Faiz Oranı / Annual Rate:** %{rate*100:.1f}")
+    st.markdown(f"**Yıllık Faiz Oranı:** %{rate*100:.1f}")
     
     # Calculate
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("#### Basit Faiz / Simple Interest")
+        st.markdown("#### Basit Faiz")
         simple_result = calculator.calculate_simple_interest(principal, rate, term_months)
         
-        st.metric("Gelecek Değer / Future Value", f"₺{simple_result['future_value']:,.2f}")
-        st.metric("Faiz Geliri / Interest", f"₺{simple_result['interest_earned']:,.2f}")
-        st.metric("Efektif Oran / Effective Rate", f"%{simple_result['effective_rate']*100:.2f}")
+        st.metric("Gelecek Değer", f"₺{simple_result['future_value']:,.2f}")
+        st.metric("Faiz Geliri", f"₺{simple_result['interest_earned']:,.2f}")
+        st.metric("Efektif Oran", f"%{simple_result['effective_rate']*100:.2f}")
     
     with col2:
-        st.markdown("#### Bileşik Faiz / Compound Interest")
+        st.markdown("#### Bileşik Faiz")
         compound_result = calculator.calculate_compound_interest(principal, rate, term_months)
         
-        st.metric("Gelecek Değer / Future Value", f"₺{compound_result['future_value']:,.2f}")
-        st.metric("Faiz Geliri / Interest", f"₺{compound_result['interest_earned']:,.2f}")
-        st.metric("Efektif Oran / Effective Rate", f"%{compound_result['effective_rate']*100:.2f}")
+        st.metric("Gelecek Değer", f"₺{compound_result['future_value']:,.2f}")
+        st.metric("Faiz Geliri", f"₺{compound_result['interest_earned']:,.2f}")
+        st.metric("Efektif Oran", f"%{compound_result['effective_rate']*100:.2f}")
     
     # Comparison chart
     st.markdown("---")
-    st.markdown("#### 📊 Banka Karşılaştırması / Bank Comparison")
+    st.markdown("#### 📊 Banka Karşılaştırması")
     
     best_options = calculator.calculate_best_option(principal, term_months)[:10]
     
@@ -94,7 +96,7 @@ def render_single_deposit(calculator: FutureValueCalculator):
             x="bank_name",
             y="total_interest",
             color="annual_rate",
-            title=f"En İyi Mevduat Seçenekleri ({term_months} Ay) / Best Deposit Options",
+            title=f"En İyi Mevduat Seçenekleri ({term_months} Ay)",
             labels={"total_interest": "Faiz Geliri (₺)", "bank_name": "Banka"},
             color_continuous_scale="Greens",
             text_auto=".2s"
@@ -115,12 +117,10 @@ def render_single_deposit(calculator: FutureValueCalculator):
 
 def render_monthly_projection(calculator: FutureValueCalculator):
     """Render monthly cash flow projection."""
-    st.subheader("📅 Aylık Nakit Akışı Projeksiyonu / Monthly Cash Flow Projection")
+    st.subheader("📅 Aylık Nakit Akışı Projeksiyonu")
     
     st.markdown("""
     Aylık net tutarları yatırıma dönüştürürseniz ne kadar kazanabilirsiniz?
-    
-    How much could you earn if you invested your monthly net amounts?
     """)
     
     # Input monthly amounts
@@ -130,7 +130,7 @@ def render_monthly_projection(calculator: FutureValueCalculator):
         months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
                   "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
         
-        st.markdown("**Aylık Net Tutarlar / Monthly Net Amounts:**")
+        st.markdown("**Aylık Net Tutarlar:**")
         monthly_amounts = []
         
         # Default values (sample)
@@ -149,7 +149,7 @@ def render_monthly_projection(calculator: FutureValueCalculator):
     
     with col2:
         annual_rate = st.slider(
-            "Yıllık Faiz Oranı / Annual Rate",
+            "Yıllık Faiz Oranı",
             min_value=0.20,
             max_value=0.60,
             value=0.40,
@@ -158,7 +158,7 @@ def render_monthly_projection(calculator: FutureValueCalculator):
         )
         
         projection_months = st.slider(
-            "Projeksiyon Süresi (Ay) / Projection Period (Months)",
+            "Projeksiyon Süresi (Ay)",
             min_value=6,
             max_value=36,
             value=12,
@@ -173,7 +173,7 @@ def render_monthly_projection(calculator: FutureValueCalculator):
         )
         
         st.markdown("---")
-        st.markdown("### 📊 Projeksiyon Sonuçları / Projection Results")
+        st.markdown("### 📊 Projeksiyon Sonuçları")
         
         c1, c2, c3 = st.columns(3)
         c1.metric("Toplam Anapara", f"₺{result['total_principal']:,.2f}")
@@ -213,12 +213,10 @@ def render_monthly_projection(calculator: FutureValueCalculator):
 
 def render_rates_table(calculator: FutureValueCalculator):
     """Render deposit rates table."""
-    st.subheader("📋 Mevduat Faiz Oranları / Deposit Interest Rates")
+    st.subheader("📋 Mevduat Faiz Oranları")
     
     st.markdown("""
     **Not:** Bu oranlar yaklaşık değerlerdir ve güncel olmayabilir.
-    
-    **Note:** These rates are approximate and may not be current.
     """)
     
     # Create rates DataFrame
@@ -240,7 +238,7 @@ def render_rates_table(calculator: FutureValueCalculator):
         pivot.values * 100,
         x=[f"{c} Ay" for c in pivot.columns],
         y=pivot.index.tolist(),
-        title="Mevduat Faiz Oranları (%) / Deposit Rates",
+        title="Mevduat Faiz Oranları (%)",
         labels=dict(x="Vade", y="Banka", color="Oran (%)"),
         color_continuous_scale="Greens",
         text_auto=".1f",
@@ -258,7 +256,7 @@ def render_rates_table(calculator: FutureValueCalculator):
 
 def render_file_projection(calculator: FutureValueCalculator):
     """Render projection for uploaded files."""
-    st.subheader("📁 Dosya Bazlı Projeksiyon / File-Based Projection")
+    st.subheader("📁 Dosya Bazlı Projeksiyon")
     
     # Initialize metadata manager
     if "metadata_manager" not in st.session_state:
@@ -268,12 +266,12 @@ def render_file_projection(calculator: FutureValueCalculator):
     files = metadata_manager.get_all_files()
     
     if not files:
-        st.info("Henüz dosya yüklenmedi. Önce '📤 Upload' sayfasından dosya yükleyin.")
+        st.info("Henüz dosya yüklenmedi. Önce '📤 Dosya Yükle' sayfasından dosya yükleyin.")
         return
     
     # Select file
     file_options = {f"{f.original_name} ({f.file_id})": f for f in files}
-    selected_key = st.selectbox("Dosya Seçin / Select File", list(file_options.keys()))
+    selected_key = st.selectbox("Dosya Seçin", list(file_options.keys()))
     
     if selected_key:
         file = file_options[selected_key]
@@ -303,7 +301,7 @@ def render_file_projection(calculator: FutureValueCalculator):
         c3.metric("Faiz Geliri", f"₺{result['interest_earned']:,.2f}")
         
         # Save projection to metadata
-        if st.button("💾 Projeksiyonu Kaydet / Save Projection"):
+        if st.button("💾 Projeksiyonu Kaydet"):
             metadata_manager.update_file(file.file_id, future_value={
                 "principal": result["principal"],
                 "future_value": result["future_value"],
@@ -312,17 +310,17 @@ def render_file_projection(calculator: FutureValueCalculator):
                 "months": months,
                 "calculated_at": pd.Timestamp.now().isoformat()
             })
-            st.success("✅ Projeksiyon kaydedildi / Projection saved")
+            st.success("✅ Projeksiyon kaydedildi")
 
 
 def main():
     st.set_page_config(
-        page_title="Future Value - Cash Flow Dashboard",
+        page_title="Gelecek Değer - Nakit Akış Paneli",
         page_icon="💰",
         layout="wide"
     )
     
-    st.title("💰 Gelecek Değer Hesaplayıcı / Future Value Calculator")
+    st.title("💰 Gelecek Değer Hesaplayıcı")
     st.markdown("---")
     
     calculator = init_calculator()

@@ -1,150 +1,122 @@
 # Cash Flow Dashboard - AI Coding Instructions
 
-## Project Overview
+## Overview
+Turkish bank POS commission tracking system. Loads raw exports from **8 banks**, verifies commission rates against expected values, calculates net amounts, and provides Streamlit dashboard for analysis.
 
-Python-based cash flow tracking system that automates manual Excel workflows from **8 Turkish bank POS systems**. Transforms raw bank exports into normalized data, calculates net amounts after commissions, and visualizes via Streamlit dashboard.
+## Quick Start
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+streamlit run src/dashboard/app.py
+```
 
 ## Architecture
 
 ```
-Bank Excel Files → Ingestion (per-bank parsers) → Validation (pandera/pydantic) 
-    → Processing (calculations) → Aggregation → Streamlit Dashboard
+data/raw/*.csv → BankFileReader → Commission Control → Calculator → Dashboard
+     ↓                ↓                  ↓                ↓
+  Vakıfbank      Column Mapping     Verify Rates      Aggregation
+  Akbank         Numeric Parsing    Flag Diffs        Ground Totals
+  Garanti...     Type Mapping       Match Check       Analysis Views
 ```
 
-### Key Components
-- **`src/ingestion/`** - Bank-specific parsers (each bank has different column names/formats)
-- **`src/validation/`** - Pydantic models for `Transaction` and `BankSummary` (see [spec/specification.md](spec/specification.md#L178-L210))
-- **`src/processing/`** - Commission calculation, settlement date logic, installment expansion
-- **`src/dashboard/`** - Streamlit app
-- **`config/banks.yaml`** - Column mappings per bank (critical for normalization)
+### Data Flow
+1. **Ingestion**: `BankFileReader.read_all_files()` scans `data/raw/`, auto-detects bank, parses with correct delimiter/encoding
+2. **Control**: `add_commission_control()` compares actual vs expected commission rates
+3. **Filter**: `filter_successful_transactions()` excludes refunds (İADE/IAD)
+4. **Calculate**: `calculate_ground_totals()` aggregates by bank, installment, period
+5. **Display**: Streamlit tabs - Özet, Banka, Taksit, Aylık, Oranlar, Kontrol
 
-## Data Models (Required Schema)
+| Module | Purpose |
+|--------|---------|
+| `src/ingestion/reader.py` | `BankFileReader` - reads Excel/CSV, auto-detects bank, applies column mapping, parses Vakıfbank format |
+| `src/processing/commission_control.py` | `add_commission_control()` - verifies rates, `COMMISSION_RATES` dict, `get_control_summary()` |
+| `src/processing/calculator.py` | `aggregate_by_bank()`, `calculate_ground_totals()`, `filter_successful_transactions()` |
+| `src/validation/models.py` | Pydantic: `Transaction`, `BankSummary`, `ControlSummary` with control fields |
+| `src/dashboard/app.py` | Main Streamlit app, loads from `data/raw/`, displays Kontrol tab |
+| `config/banks.yaml` | Per-bank: `raw_columns`, `delimiter`, `encoding`, `skip_rows`, `transaction_type_map` |
 
-Use these exact field names when creating or processing data:
+## Commission Control Pattern
+
+**Key concept**: Bank provides actual rate, we verify against expected rate from `COMMISSION_RATES`:
 
 ```python
-# Core fields for Transaction model
-bank_name, transaction_date, settlement_date, gross_amount, 
-commission_rate, commission_amount, net_amount, transaction_type,
-installment_count, installment_number
+from processing.commission_control import add_commission_control, COMMISSION_RATES
+
+df = add_commission_control(df)  # Adds: rate_expected, commission_expected, commission_diff, rate_match
+summary = get_control_summary(df)  # Returns: matched_count, mismatched_count, total_commission_diff
 ```
 
-## Bank Processing Patterns
+## Vakıfbank CSV Format
 
-### Column Mapping
-Each bank exports different column names. Map to standard schema via `config/banks.yaml`:
-```yaml
-bank_1:
-  "İşlem Tutarı": gross_amount
-  "Komisyon": commission_amount
-bank_2:
-  "Tutar": gross_amount
-  "Amount": gross_amount  # Some banks use English
-```
+Special handling in `reader.py`:
+- **Delimiter**: `;` (semicolon)
+- **Encoding**: `iso-8859-9` (Turkish)
+- **Skip rows**: 2 (metadata headers)
+- **Numeric format**: `+00000000000005038.80` → `5038.80` (parsed by `parse_vakifbank_amount()`)
+- **Transaction types**: `TKS`→Taksit, `TEK`→Tek Çekim, `IAD`→İade
 
-### Filtering Rule
-Only include successful sales: `df[df['transaction_type'] == 'successful_sale']`
-Exclude: refunds, cancellations, failed transactions.
+## Adding a New Bank
 
-### Net Amount Calculation
+1. Add config to `config/banks.yaml`:
+   ```yaml
+   newbank:
+     name: "NewBank"
+     display_name: "NEW BANK A.S."
+     file_pattern: "*NewBank*.csv"
+     delimiter: ","
+     encoding: "utf-8"
+     raw_columns:
+       "Amount": gross_amount
+       "Fee": commission_amount
+   ```
+2. Add rates to `COMMISSION_RATES` in `commission_control.py`
+3. If special parsing needed, add `_transform_newbank()` method in `reader.py`
+
+## Key Turkish Terms
+| Turkish | English | In Code |
+|---------|---------|---------|
+| Peşin / Tek Çekim | Single payment | installment_count = 1 |
+| Taksit | Installment | installment_count = 2-12 |
+| Brüt Tutar | Gross Amount | gross_amount |
+| Komisyon | Commission | commission_amount |
+| Net Tutar | Net Amount | net_amount |
+| İade / IAD | Refund | Excluded by filter |
+
+## Commission Rates (GÜNCELLENEN ORANLAR-v3)
+
+Defined in `src/processing/commission_control.py`. Example:
 ```python
-net_amount = gross_amount - commission_amount
-# OR if only rate provided:
-commission_amount = gross_amount * commission_rate
-```
-
-## File Locations
-
-- **Raw bank exports**: `data/raw/` (Excel/CSV from 8 banks)
-- **Processed data**: `data/processed/`
-- **Output reports**: `data/output/`
-- **Project spec**: [spec/specification.md](spec/specification.md) (bilingual EN/TR)
-
-## Tech Stack
-
-```
-pandas, openpyxl, xlrd     # Excel I/O
-pandera, pydantic          # Validation
-streamlit, plotly          # Dashboard
-pyyaml                     # Config
-```
-
-## Development Notes
-
-- **Bilingual context**: Stakeholders are Turkish; column names in bank files may be Turkish (e.g., "İşlem Tutarı", "Komisyon", "Brüt Tutar")
-- **Decimal precision**: Use `Decimal` type for monetary amounts, not `float`
-- **Date handling**: Use `python-dateutil` for parsing varied date formats across banks
-- **Installments**: Some transactions span multiple months—expand into separate rows with individual settlement dates
-
-## Actual Data Structure (Discovered)
-
-### Raw Data Source:
-**`data/raw/Ziraat Bankası- Aralık Tek Çekim İşlemler Raporu-Bank-raw.xlsx`**
-- Sheet: **`Ziraat Ekstre-31.12`** - Raw transaction data (14,984 rows)
-
-> Note: Other files/sheets in `data/raw/` are prepared dashboards, NOT raw data.
-
-### Raw Data Columns (Ziraat Ekstre-31.12):
-| Column | Description | Sample Values |
-|--------|-------------|---------------|
-| İşlem Tipi | Transaction type | Satış, İade |
-| İşlem Durumu | Transaction status | Başarılı |
-| Ay | Month name (Turkish) | Haziran, Temmuz, Ağustos... |
-| İşlem Tarihi | Transaction date | datetime |
-| Kartın Bankası | Card issuer bank | DÜNYA KATILIM BANKASI A.Ş. |
-| Banka adı | POS Bank | ZİRAAT BANKASI, AKBANK T.A.S. |
-| Tutar | Amount (TRY) | 223.08, 18468.00 |
-| Para Birimi | Currency | TRY |
-| Taksit | Installment count | Peşin, 2, 3, ... 10 |
-| Kart Markası | Card brand | VISA, MASTERCARD, TROY |
-| TÜR | Payment type | Tek çekim, Taksitli |
-
-### Column Mapping (Raw → Standard):
-```python
-{
-    "Ay": "AY",
-    "İşlem Tarihi": "Tarih",
-    "Banka adı": "Banka Adı",
-    "Tutar": "Tutar",
-    "Taksit": "Taksit Sayısı",
-    "TÜR": "Tek Çekim / Taksit",
+"T. VAKIFLAR BANKASI T.A.O.": {
+    "Peşin": 0.0336, "1": 0.0336,
+    "2": 0.0499, "3": 0.0690, ..., "12": 0.2395
 }
 ```
 
-### Veri Sheet Columns (Standard Schema):
-| Column | Description | Sample Values |
-|--------|-------------|---------------|
-| AY | Month name (Turkish) | Ocak, Şubat, Mart... |
-| Tarih | Transaction date | datetime |
-| Taksit Sayısı | Installment count | Peşin, 2, 3, ... 12 |
-| Banka Adı | Bank name | Garanti, Akbank, etc. |
-| Tutar | Gross amount | numeric (TRY) |
-| Oran | Commission rate | 0.0374 (decimal) |
-| Komisyon | Commission amount | numeric (TRY) |
-| Tek Çekim / Taksit | Payment type | "Tek Çekim" or "Taksit" |
+## Dashboard Tabs
+| Tab | Purpose |
+|-----|---------|
+| 📊 Özet | Summary metrics, Tek Çekim vs Taksit split |
+| 🏦 Banka | Per-bank breakdown |
+| 💳 Taksit | By installment count analysis |
+| 📅 Aylık | Monthly trends |
+| 📊 Oranlar | Commission rates heatmap |
+| 🔍 Kontrol | **Commission verification** - actual vs expected, flag discrepancies |
+| Future Value | `pages/2__Future_Value.py` | Deposit interest calculator |
 
-### Key Turkish Terms:
-- **Peşin** = Cash/Single payment (no installments)
-- **Tek Çekim** = Single payment type
-- **Taksit** = Installment
-- **Oran** = Rate
-- **Komisyon** = Commission
-- **Tutar** = Amount
+## File Locations
+- **Raw data**: `data/raw/` (bank Excel exports)
+- **Metadata**: `data/metadata/files_metadata.json` (upload tracking)
+- **Config**: `config/banks.yaml` (column mappings), `config/settings.yaml` (app settings)
+- **Spec**: `spec/specification.md` (bilingual EN/TR requirements)
 
-### Banks (8 total):
-Garanti, Akbank, Halkbank, YKB, Ziraat, Vakıfbank, QNB, İşbankası
+## Adding a New Bank
+1. Add bank config to `config/banks.yaml` with `raw_columns` mapping
+2. Add commission rates to `COMMISSION_RATES` dict in `app.py`
+3. Test with sample file using `BankFileReader.read_file()`
 
-### Commission Rate Ranges:
-- **Lowest**: Ziraat (Peşin: 2.95%, 12-month: ~20%)
-- **Highest**: Some banks reach ~25% for 12-month installments
-- Rates increase with installment count
-
-## Current Status
-
-Dashboard implemented with Streamlit. Core analysis views:
-1. **Özet (Summary)** - Total metrics, bank breakdown charts
-2. **Bankalar (Banks)** - Per-bank analysis
-3. **Taksit (Installments)** - Installment distribution analysis
-4. **Trend** - Monthly trends
-5. **Oranlar (Rates)** - Commission rates comparison
-6. **Veri (Data)** - Raw data table with filters
+## Session State (Streamlit)
+Dashboard uses `st.session_state` for persistence:
+- `metadata_manager`: FileMetadata tracking
+- `file_cache`: Uploaded file storage
+- `fv_calculator`: Future value calculator instance

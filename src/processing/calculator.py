@@ -1,10 +1,10 @@
 """Transaction processing and calculations.
 
-Handles commission calculations, filtering, and aggregation.
+Handles commission calculations, filtering, aggregation, and ground totals with control.
 """
 
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 import pandas as pd
 import yaml
@@ -73,6 +73,7 @@ def filter_successful_transactions(
     df: pd.DataFrame,
     transaction_type_column: str = "transaction_type",
     successful_types: Optional[List[str]] = None,
+    exclude_types: Optional[List[str]] = None,
     settings_path: Path = None,
 ) -> pd.DataFrame:
     """Filter DataFrame to only include successful sales.
@@ -81,24 +82,38 @@ def filter_successful_transactions(
         df: Transaction DataFrame.
         transaction_type_column: Column name containing transaction type.
         successful_types: List of values indicating successful sales.
+        exclude_types: List of values to exclude (refunds, cancellations).
         settings_path: Path to settings.yaml for defaults.
         
     Returns:
         Filtered DataFrame with only successful transactions.
     """
-    # Load default successful types from settings if not provided
+    # Load settings
+    settings = load_settings(settings_path)
+    processing_settings = settings.get("processing", {})
+    
+    # Get types to include
     if successful_types is None:
-        settings = load_settings(settings_path)
-        successful_types = settings.get("processing", {}).get(
+        successful_types = processing_settings.get(
             "include_transaction_types",
-            ["successful_sale", "SATIŞ", "Satış", "Peşin Satış"]
+            ["successful_sale", "SATIŞ", "Satış", "Peşin Satış", "Taksit", "Tek Çekim", "TKS", "TEK"]
+        )
+    
+    # Get types to exclude
+    if exclude_types is None:
+        exclude_types = processing_settings.get(
+            "exclude_transaction_types",
+            ["İADE", "İade", "İPTAL", "İptal", "BAŞARISIZ", "Başarısız", "IAD"]
         )
     
     # If transaction_type column doesn't exist, return as-is
     if transaction_type_column not in df.columns:
         return df
     
-    return df[df[transaction_type_column].isin(successful_types)].copy()
+    # First exclude unwanted types
+    df_filtered = df[~df[transaction_type_column].isin(exclude_types)].copy()
+    
+    return df_filtered
 
 
 def ensure_numeric_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -112,7 +127,10 @@ def ensure_numeric_columns(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with numeric amount columns.
     """
-    amount_columns = ["gross_amount", "commission_amount", "net_amount", "blocked_amount"]
+    amount_columns = [
+        "gross_amount", "commission_amount", "net_amount", "blocked_amount",
+        "commission_expected", "commission_diff"
+    ]
     
     for col in amount_columns:
         if col in df.columns:
@@ -134,11 +152,12 @@ def ensure_numeric_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def aggregate_by_bank(df: pd.DataFrame) -> pd.DataFrame:
-    """Aggregate transaction data by bank.
+def aggregate_by_bank(df: pd.DataFrame, include_control: bool = True) -> pd.DataFrame:
+    """Aggregate transaction data by bank with commission control.
     
     Args:
         df: Transaction DataFrame with bank_name column.
+        include_control: Include commission control columns in aggregation.
         
     Returns:
         Summary DataFrame grouped by bank.
@@ -154,12 +173,24 @@ def aggregate_by_bank(df: pd.DataFrame) -> pd.DataFrame:
         "net_amount": "sum",
     }
     
+    # Add control columns if present
+    if include_control:
+        if "commission_expected" in df.columns:
+            agg_dict["commission_expected"] = "sum"
+        if "commission_diff" in df.columns:
+            agg_dict["commission_diff"] = "sum"
+    
     # Only include columns that exist
     agg_dict = {k: v for k, v in agg_dict.items() if k in df.columns}
     
     # Add count
     result = df.groupby("bank_name").agg(agg_dict).reset_index()
     result["transaction_count"] = df.groupby("bank_name").size().values
+    
+    # Add control counts
+    if include_control and "rate_match" in df.columns:
+        result["matched_count"] = df.groupby("bank_name")["rate_match"].sum().values
+        result["mismatched_count"] = result["transaction_count"] - result["matched_count"]
     
     # Calculate commission percentage
     if "gross_amount" in result.columns and "commission_amount" in result.columns:
@@ -168,6 +199,45 @@ def aggregate_by_bank(df: pd.DataFrame) -> pd.DataFrame:
         ).round(2)
     
     return result
+
+
+def aggregate_by_installment(df: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate transaction data by installment count.
+    
+    Args:
+        df: Transaction DataFrame with installment_count column.
+        
+    Returns:
+        Summary DataFrame grouped by installment count.
+    """
+    if "installment_count" not in df.columns:
+        raise ValueError("DataFrame must have 'installment_count' column")
+    
+    df = ensure_numeric_columns(df)
+    
+    agg_dict = {
+        "gross_amount": "sum",
+        "commission_amount": "sum",
+        "net_amount": "sum",
+    }
+    
+    if "commission_expected" in df.columns:
+        agg_dict["commission_expected"] = "sum"
+    if "commission_diff" in df.columns:
+        agg_dict["commission_diff"] = "sum"
+    
+    agg_dict = {k: v for k, v in agg_dict.items() if k in df.columns}
+    
+    result = df.groupby("installment_count").agg(agg_dict).reset_index()
+    result["transaction_count"] = df.groupby("installment_count").size().values
+    
+    # Calculate commission percentage
+    if "gross_amount" in result.columns and "commission_amount" in result.columns:
+        result["commission_pct"] = (
+            result["commission_amount"] / result["gross_amount"] * 100
+        ).round(2)
+    
+    return result.sort_values("installment_count")
 
 
 def aggregate_by_period(
@@ -201,6 +271,11 @@ def aggregate_by_period(
         "commission_amount": "sum",
         "net_amount": "sum",
     }
+    
+    if "commission_expected" in df.columns:
+        agg_dict["commission_expected"] = "sum"
+    if "commission_diff" in df.columns:
+        agg_dict["commission_diff"] = "sum"
     
     # Only include columns that exist
     agg_dict = {k: v for k, v in agg_dict.items() if k in df.columns}
@@ -242,6 +317,11 @@ def aggregate_by_bank_and_period(
         "net_amount": "sum",
     }
     
+    if "commission_expected" in df.columns:
+        agg_dict["commission_expected"] = "sum"
+    if "commission_diff" in df.columns:
+        agg_dict["commission_diff"] = "sum"
+    
     agg_dict = {k: v for k, v in agg_dict.items() if k in df.columns}
     
     result = df.groupby(["bank_name", "period"]).agg(agg_dict).reset_index()
@@ -249,3 +329,43 @@ def aggregate_by_bank_and_period(
     result["period"] = result["period"].astype(str)
     
     return result
+
+
+def calculate_ground_totals(df: pd.DataFrame) -> Dict:
+    """Calculate ground totals for all transactions with control summary.
+    
+    Args:
+        df: Transaction DataFrame with commission control columns.
+        
+    Returns:
+        Dictionary with total metrics.
+    """
+    df = ensure_numeric_columns(df)
+    
+    totals = {
+        "total_transactions": len(df),
+        "total_gross": df["gross_amount"].sum() if "gross_amount" in df.columns else 0,
+        "total_commission": df["commission_amount"].sum() if "commission_amount" in df.columns else 0,
+        "total_net": df["net_amount"].sum() if "net_amount" in df.columns else 0,
+    }
+    
+    # Add control totals if available
+    if "commission_expected" in df.columns:
+        totals["total_commission_expected"] = df["commission_expected"].sum()
+        totals["total_commission_diff"] = totals["total_commission"] - totals["total_commission_expected"]
+    
+    if "rate_match" in df.columns:
+        totals["matched_count"] = int(df["rate_match"].sum())
+        totals["mismatched_count"] = totals["total_transactions"] - totals["matched_count"]
+        totals["match_percentage"] = (
+            totals["matched_count"] / totals["total_transactions"] * 100
+            if totals["total_transactions"] > 0 else 0
+        )
+    
+    # Commission percentage
+    if totals["total_gross"] > 0:
+        totals["commission_pct"] = round(totals["total_commission"] / totals["total_gross"] * 100, 2)
+    else:
+        totals["commission_pct"] = 0
+    
+    return totals
