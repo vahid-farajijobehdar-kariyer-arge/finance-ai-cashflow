@@ -29,6 +29,13 @@ from processing.calculator import (
     calculate_ground_totals
 )
 
+# Import cache utilities for auto-refresh
+try:
+    from cache_utils import auto_refresh_if_changed
+except ImportError:
+    def auto_refresh_if_changed():
+        pass  # Fallback if not available
+
 # Data paths
 RAW_PATH = Path(__file__).parent.parent.parent / "data" / "raw"
 
@@ -931,21 +938,20 @@ def main():
     
     setup_page()
     
+    # Auto-refresh data if files have changed (data reset on import)
+    auto_refresh_if_changed()
+    
     # Load data from raw files
     df = load_raw_data()
     
     if df is None or df.empty:
-        st.error(f"""
+        st.error("""
         ❌ Veri dosyası bulunamadı / Data file not found.
         
-        Beklenen dizin / Expected directory:
-        `{RAW_PATH}`
+        Lütfen '📤 Dosya Yükle' sayfasından banka ekstre dosyalarınızı yükleyin.
+        Please upload your bank statement files from the '📤 File Upload' page.
         
-        Lütfen banka CSV/Excel dosyalarını bu dizine ekleyin.
-        Please add bank CSV/Excel files to this directory.
-        
-        Örnek dosya adı / Example filename:
-        `Vakıfbank_31 ARALIK 2025.csv`
+        Desteklenen formatlar / Supported formats: CSV, XLSX, XLS
         """)
         
         # Show available files

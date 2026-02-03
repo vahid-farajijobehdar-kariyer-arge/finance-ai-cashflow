@@ -26,6 +26,7 @@ from storage.cache import FileCache
 # Import auth module
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from auth import check_password
+from cache_utils import clear_all_data_caches, invalidate_data
 
 # Data paths
 RAW_PATH = PROJECT_ROOT.parent / "data" / "raw"
@@ -241,7 +242,11 @@ def render_upload_section():
                     if st.button(f"💾 Kaydet", key=f"save_{uploaded_file.name}"):
                         saved_path = save_to_raw(file_content, uploaded_file.name)
                         st.success(f"✅ Kaydedildi: {saved_path.name}")
-                        st.cache_data.clear()  # Clear cache to reload data
+                        # Clear ALL data caches - data resets on new import
+                        clear_all_data_caches()
+                        invalidate_data()
+                        st.info("🔄 Tüm veriler yenilendi. Sayfa yeniden yüklenecek...")
+                        st.rerun()
                 
                 with col2:
                     if st.button(f"👁️ Önizle", key=f"preview_{uploaded_file.name}"):
@@ -274,7 +279,23 @@ def render_existing_files():
         st.info("📁 Henüz dosya yüklenmedi")
         return
     
-    st.markdown(f"**{len(files)} dosya mevcut:**")
+    # Bulk actions
+    col_info, col_clear = st.columns([3, 1])
+    with col_info:
+        st.markdown(f"**{len(files)} dosya mevcut:**")
+    with col_clear:
+        if st.button("🗑️ Tümünü Sil", type="secondary", help="Tüm dosyaları sil ve verileri sıfırla"):
+            for f in files:
+                try:
+                    f.unlink()
+                except Exception:
+                    pass
+            clear_all_data_caches()
+            invalidate_data()
+            st.success("Tüm dosyalar silindi!")
+            st.rerun()
+    
+    st.markdown("---")
     
     for f in sorted(files, key=lambda x: x.stat().st_mtime, reverse=True):
         col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
@@ -295,7 +316,9 @@ def render_existing_files():
             if st.button("🗑️", key=f"delete_{f.name}", help="Dosyayı sil"):
                 f.unlink()
                 st.success(f"Silindi: {f.name}")
-                st.cache_data.clear()
+                # Clear ALL data caches - data resets on delete
+                clear_all_data_caches()
+                invalidate_data()
                 st.rerun()
 
 

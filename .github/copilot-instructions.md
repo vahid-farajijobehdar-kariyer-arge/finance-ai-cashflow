@@ -1,7 +1,9 @@
 # Cash Flow Dashboard - AI Coding Instructions
 
 ## Overview
-Turkish bank POS commission tracking system. Loads raw exports from **8 banks**, verifies commission rates against expected values, calculates net amounts, and provides Streamlit dashboard for analysis.
+Turkish bank POS commission tracking system. Loads raw exports from **8 banks** (Akbank, Garanti, Halkbank, QNB, Vakıfbank, YKB, Ziraat, İşbank), verifies commission rates against expected values, calculates net amounts, and provides Streamlit dashboard for analysis.
+
+**Design Pattern**: Data resets each time new files are imported. All caches are cleared automatically on file upload/delete.
 
 ## Quick Start
 ```bash
@@ -17,7 +19,12 @@ data/raw/*.csv → BankFileReader → Commission Control → Calculator → Dash
      ↓                ↓                  ↓                ↓
   Vakıfbank      Column Mapping     Verify Rates      Aggregation
   Akbank         Numeric Parsing    Flag Diffs        Ground Totals
-  Garanti...     Type Mapping       Match Check       Analysis Views
+  Garanti        Type Mapping       Match Check       Analysis Views
+  Halkbank
+  QNB
+  YKB
+  Ziraat
+  İşbank
 ```
 
 ### Data Flow
@@ -26,15 +33,18 @@ data/raw/*.csv → BankFileReader → Commission Control → Calculator → Dash
 3. **Filter**: `filter_successful_transactions()` excludes refunds (İADE/IAD)
 4. **Calculate**: `calculate_ground_totals()` aggregates by bank, installment, period
 5. **Display**: Streamlit tabs - Özet, Banka, Taksit, Aylık, Oranlar, Kontrol
+6. **Cache**: `cache_utils.py` handles automatic cache clearing on data import
 
 | Module | Purpose |
 |--------|---------|
-| `src/ingestion/reader.py` | `BankFileReader` - reads Excel/CSV, auto-detects bank, applies column mapping, parses Vakıfbank format |
-| `src/processing/commission_control.py` | `add_commission_control()` - verifies rates, `COMMISSION_RATES` dict, `get_control_summary()` |
+| `src/ingestion/reader.py` | `BankFileReader` - reads Excel/CSV, auto-detects bank, applies column mapping |
+| `src/processing/commission_control.py` | `add_commission_control()` - verifies rates from `config/commission_rates.yaml` |
 | `src/processing/calculator.py` | `aggregate_by_bank()`, `calculate_ground_totals()`, `filter_successful_transactions()` |
-| `src/validation/models.py` | Pydantic: `Transaction`, `BankSummary`, `ControlSummary` with control fields |
-| `src/dashboard/app.py` | Main Streamlit app, loads from `data/raw/`, displays Kontrol tab |
-| `config/banks.yaml` | Per-bank: `raw_columns`, `delimiter`, `encoding`, `skip_rows`, `transaction_type_map` |
+| `src/dashboard/app.py` | Main Streamlit app, loads from `data/raw/` |
+| `src/dashboard/auth.py` | Password authentication for all pages |
+| `src/dashboard/cache_utils.py` | `clear_all_data_caches()`, `auto_refresh_if_changed()` |
+| `config/banks.yaml` | Per-bank: `raw_columns`, `delimiter`, `encoding`, `skip_rows` |
+| `config/commission_rates.yaml` | Commission rates per bank and installment |
 
 ## Commission Control Pattern
 
@@ -93,30 +103,39 @@ Defined in `src/processing/commission_control.py`. Example:
 }
 ```
 
-## Dashboard Tabs
-| Tab | Purpose |
-|-----|---------|
-| 📊 Özet | Summary metrics, Tek Çekim vs Taksit split |
-| 🏦 Banka | Per-bank breakdown |
-| 💳 Taksit | By installment count analysis |
-| 📅 Aylık | Monthly trends |
-| 📊 Oranlar | Commission rates heatmap |
-| 🔍 Kontrol | **Commission verification** - actual vs expected, flag discrepancies |
-| Future Value | `pages/2__Future_Value.py` | Deposit interest calculator |
+## Dashboard Pages
+| Page | File | Purpose |
+|------|------|---------|
+| Dashboard | `app.py` | Main summary with all tabs |
+| 📤 Dosya Yükle | `1__Dosya_Yukle.py` | Upload/manage bank files (triggers cache reset) |
+| 💰 Gelecek Değer | `2__Gelecek_Deger.py` | Future value calculator |
+| 🔍 Veri Kontrol | `3__Veri_Kontrol.py` | Data quality validation |
+| 🏦 Ziraat Detay | `3__Ziraat_Detay.py` | Ziraat bank analysis |
+| 🏦 Akbank Detay | `4__Akbank_Detay.py` | Akbank analysis |
+| 🏦 Garanti Detay | `5__Garanti_Detay.py` | Garanti BBVA analysis |
+| 🏦 Vakıfbank Detay | `6__Vakifbank_Detay.py` | Vakıfbank analysis |
+| 🏦 Halkbank Detay | `7__Halkbank_Detay.py` | Halkbank analysis |
+| 🏦 QNB Detay | `8__QNB_Detay.py` | QNB Finansbank analysis |
+| 🏦 YKB Detay | `9__YKB_Detay.py` | Yapı Kredi analysis |
+| 📊 Rapor | `10__Rapor.py` | Export reports (Excel, CSV) |
 
 ## File Locations
 - **Raw data**: `data/raw/` (bank Excel exports)
 - **Metadata**: `data/metadata/files_metadata.json` (upload tracking)
-- **Config**: `config/banks.yaml` (column mappings), `config/settings.yaml` (app settings)
+- **Config**: `config/banks.yaml` (column mappings), `config/commission_rates.yaml` (rates)
 - **Spec**: `spec/specification.md` (bilingual EN/TR requirements)
 
-## Adding a New Bank
-1. Add bank config to `config/banks.yaml` with `raw_columns` mapping
-2. Add commission rates to `COMMISSION_RATES` dict in `app.py`
-3. Test with sample file using `BankFileReader.read_file()`
+## Data Reset on Import
+When new files are uploaded or deleted:
+1. `clear_all_data_caches()` is called automatically
+2. All `@st.cache_data` decorated functions are invalidated
+3. `auto_refresh_if_changed()` detects file changes on page load
+4. Fresh data is loaded from `data/raw/` on next access
 
 ## Session State (Streamlit)
 Dashboard uses `st.session_state` for persistence:
+- `password_correct`: Authentication status
 - `metadata_manager`: FileMetadata tracking
 - `file_cache`: Uploaded file storage
 - `fv_calculator`: Future value calculator instance
+- `_data_version`: Hash of current data files for change detection
