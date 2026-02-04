@@ -193,6 +193,9 @@ def verify_commission(
 def add_commission_control(df: pd.DataFrame, bank_name: str = "Vakıfbank") -> pd.DataFrame:
     """Add commission control columns to DataFrame.
     
+    Kontrol 1: Oran karşılaştırması (dosyadaki vs tablodaki)
+    Kontrol 2: Tutar doğrulaması (gross × rate ≈ commission_amount)
+    
     Args:
         df: Transaction DataFrame with gross_amount, commission_amount, 
             commission_rate, installment_count columns.
@@ -209,13 +212,16 @@ def add_commission_control(df: pd.DataFrame, bank_name: str = "Vakıfbank") -> p
     df["rate_diff"] = 0.0
     df["commission_diff"] = 0.0
     df["rate_match"] = False
+    df["amount_match"] = False
     df["control_status"] = ""
+    df["control_flag"] = ""
     
     for idx, row in df.iterrows():
         # Get values
-        gross = row.get("gross_amount", 0)
-        commission_actual = row.get("commission_amount", 0)
-        rate_actual = row.get("commission_rate", 0)
+        gross = row.get("gross_amount", 0) or 0
+        commission_actual = row.get("commission_amount", 0) or 0
+        rate_actual = row.get("commission_rate", 0) or 0
+        rate_source = row.get("rate_source", "unknown")
         installment = row.get("installment_count", 1)
         bank = row.get("bank_name", bank_name)
         
@@ -231,35 +237,61 @@ def add_commission_control(df: pd.DataFrame, bank_name: str = "Vakıfbank") -> p
         # Get installment count
         inst_count = int(installment) if pd.notna(installment) else 1
         
-        # ALWAYS get expected rate from our table based on bank and installment
+        # KONTROL 1: Tablodaki beklenen oran
         rate_from_table = get_expected_rate(bank, inst_count)
         
-        # If we have a rate from our table, use it to fill/override
+        flags = []
+        
         if rate_from_table is not None:
-            # Fill commission_rate with our table rate
-            df.at[idx, "commission_rate"] = rate_from_table
-            
-            # Calculate expected commission using our rate
-            commission_from_table = gross * rate_from_table
-            df.at[idx, "commission_expected"] = round(commission_from_table, 2)
             df.at[idx, "rate_expected"] = rate_from_table
             
-            # Calculate differences (between actual and our expected)
-            rate_diff = abs((rate_actual or 0) - rate_from_table)
-            commission_diff = commission_actual - commission_from_table
+            # Calculate expected commission using our table rate
+            commission_from_table = gross * rate_from_table
+            df.at[idx, "commission_expected"] = round(commission_from_table, 2)
             
+            # Oran farkı kontrolü
+            rate_diff = abs(rate_actual - rate_from_table)
             df.at[idx, "rate_diff"] = rate_diff
+            df.at[idx, "rate_match"] = rate_diff < 0.001  # %0.1 tolerans
+            
+            # Tutar farkı
+            commission_diff = commission_actual - commission_from_table
             df.at[idx, "commission_diff"] = round(commission_diff, 2)
-            df.at[idx, "rate_match"] = rate_diff < 0.001  # ~0.1% tolerance
-            df.at[idx, "control_status"] = "✓ OK" if rate_diff < 0.001 else f"⚠ Fark: {rate_diff*100:.2f}%"
+            
+            if rate_diff >= 0.001:
+                flags.append(f"ORAN_FARK:{rate_diff*100:.2f}%")
         else:
-            # No rate in our table for this bank/installment - keep original
             df.at[idx, "rate_expected"] = 0.0
             df.at[idx, "commission_expected"] = 0.0
             df.at[idx, "rate_diff"] = 0.0
             df.at[idx, "commission_diff"] = 0.0
             df.at[idx, "rate_match"] = False
-            df.at[idx, "control_status"] = "? Tabloda yok"
+            flags.append("TABLO_YOK")
+        
+        # KONTROL 2: Tutar doğrulaması (gross × rate ≈ commission?)
+        if gross > 0 and rate_actual > 0:
+            commission_calculated = gross * rate_actual
+            amount_diff = abs(commission_actual - commission_calculated)
+            amount_diff_pct = (amount_diff / commission_actual * 100) if commission_actual != 0 else 0
+            
+            df.at[idx, "amount_match"] = amount_diff_pct < 1.0  # %1 tolerans
+            
+            if amount_diff_pct >= 1.0:
+                flags.append(f"TUTAR_FARK:{amount_diff:.2f}TL({amount_diff_pct:.1f}%)")
+        else:
+            df.at[idx, "amount_match"] = True  # Kontrol yapılamadı
+        
+        # Rate source flag
+        if rate_source == "calculated":
+            flags.append("ORAN_HESAPLANDI")
+        
+        # Status ve flag'leri oluştur
+        if not flags:
+            df.at[idx, "control_status"] = "✓ OK"
+            df.at[idx, "control_flag"] = ""
+        else:
+            df.at[idx, "control_status"] = "⚠ Kontrol"
+            df.at[idx, "control_flag"] = " | ".join(flags)
     
     return df
 
@@ -274,20 +306,44 @@ def get_control_summary(df: pd.DataFrame) -> dict:
         Summary dictionary with totals and counts.
     """
     total_transactions = len(df)
-    matched = df["rate_match"].sum() if "rate_match" in df.columns else 0
-    mismatched = total_transactions - matched
+    
+    # Oran eşleşmesi
+    rate_matched = df["rate_match"].sum() if "rate_match" in df.columns else 0
+    rate_mismatched = total_transactions - rate_matched
+    
+    # Tutar eşleşmesi
+    amount_matched = df["amount_match"].sum() if "amount_match" in df.columns else 0
+    amount_mismatched = total_transactions - amount_matched
+    
+    # Oran kaynağı
+    rate_from_file = (df["rate_source"] == "file").sum() if "rate_source" in df.columns else 0
+    rate_calculated = (df["rate_source"] == "calculated").sum() if "rate_source" in df.columns else 0
+    
+    # Flag sayısı
+    flagged = (df["control_flag"] != "").sum() if "control_flag" in df.columns else 0
     
     total_commission_actual = df["commission_amount"].sum() if "commission_amount" in df.columns else 0
     total_commission_expected = df["commission_expected"].sum() if "commission_expected" in df.columns else 0
     total_diff = total_commission_actual - total_commission_expected
     
+    # Tüm kontroller OK mu?
+    all_ok = (rate_mismatched == 0) and (amount_mismatched == 0)
+    
     return {
         "total_transactions": total_transactions,
-        "matched_count": int(matched),
-        "mismatched_count": int(mismatched),
-        "match_percentage": (matched / total_transactions * 100) if total_transactions > 0 else 0,
+        "rate_matched_count": int(rate_matched),
+        "rate_mismatched_count": int(rate_mismatched),
+        "amount_matched_count": int(amount_matched),
+        "amount_mismatched_count": int(amount_mismatched),
+        "rate_from_file_count": int(rate_from_file),
+        "rate_calculated_count": int(rate_calculated),
+        "flagged_count": int(flagged),
+        "match_percentage": (rate_matched / total_transactions * 100) if total_transactions > 0 else 0,
         "total_commission_actual": total_commission_actual,
         "total_commission_expected": total_commission_expected,
         "total_commission_diff": total_diff,
-        "status": "✓ Tüm oranlar doğru" if mismatched == 0 else f"⚠ {mismatched} işlemde fark var"
+        "status": "✓ Tüm kontroller OK" if all_ok else f"⚠ {flagged} işlemde kontrol gerekli",
+        # Backward compatibility
+        "matched_count": int(rate_matched),
+        "mismatched_count": int(rate_mismatched),
     }

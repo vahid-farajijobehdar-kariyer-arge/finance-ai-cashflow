@@ -178,6 +178,70 @@ class BankFileReader:
         "net_amount",
         "installment_count",
     }
+    
+    @staticmethod
+    def calculate_commission_rate(df: pd.DataFrame) -> pd.DataFrame:
+        """Komisyon oranı yoksa veya NaN ise hesapla ve doğrula.
+        
+        - commission_rate yoksa: commission_amount / gross_amount ile hesapla
+        - rate_source: 'file' (dosyadan), 'calculated' (hesaplandı)
+        - rate_verified: gross_amount × commission_rate ≈ commission_amount
+        - amount_diff: Hesaplanan ile gerçek tutar arasındaki fark
+        
+        Args:
+            df: Transaction DataFrame
+            
+        Returns:
+            DataFrame with rate calculation and verification columns
+        """
+        df = df.copy()
+        
+        # Rate source sütunu ekle
+        if "rate_source" not in df.columns:
+            df["rate_source"] = "unknown"
+        
+        # Commission rate yoksa oluştur
+        if "commission_rate" not in df.columns:
+            df["commission_rate"] = None
+        
+        # Her satır için işle
+        for idx, row in df.iterrows():
+            gross = row.get("gross_amount", 0) or 0
+            commission_actual = row.get("commission_amount", 0) or 0
+            rate_from_file = row.get("commission_rate")
+            
+            # Rate dosyadan mı geliyor yoksa hesaplanacak mı?
+            if pd.notna(rate_from_file) and rate_from_file != 0:
+                # Dosyadan gelen oran
+                rate = rate_from_file
+                # Yüzde olarak verilmişse düzelt (23.95 → 0.2395)
+                if rate > 1:
+                    rate = rate / 100
+                df.at[idx, "commission_rate"] = rate
+                df.at[idx, "rate_source"] = "file"
+            else:
+                # Oran yok - hesapla
+                if gross > 0:
+                    rate = commission_actual / gross
+                    df.at[idx, "commission_rate"] = round(rate, 6)
+                    df.at[idx, "rate_source"] = "calculated"
+                else:
+                    df.at[idx, "commission_rate"] = 0.0
+                    df.at[idx, "rate_source"] = "zero_gross"
+        
+        # Tutar doğrulaması: gross × rate = commission_amount?
+        df["commission_calculated"] = df["gross_amount"] * df["commission_rate"]
+        df["amount_diff"] = df["commission_amount"] - df["commission_calculated"]
+        df["amount_diff_pct"] = df.apply(
+            lambda r: abs(r["amount_diff"]) / r["commission_amount"] * 100 
+            if r["commission_amount"] != 0 else 0, 
+            axis=1
+        )
+        
+        # Doğrulama flag: %1'den az fark varsa OK
+        df["rate_verified"] = df["amount_diff_pct"] < 1.0
+        
+        return df
 
     def __init__(self, config_path: Path = None):
         """Initialize reader with bank configuration.
@@ -340,6 +404,9 @@ class BankFileReader:
             bank_name = self._extract_bank_name_from_filename(file_path.name)
             df["bank_name"] = bank_name
 
+        # Komisyon oranı yoksa hesapla ve doğrula
+        df = self.calculate_commission_rate(df)
+        
         df.attrs["bank_key"] = bank_key
         return df
     
