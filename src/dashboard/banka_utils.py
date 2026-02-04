@@ -15,9 +15,9 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.resolve()
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from ingestion.reader import BankFileReader
-from processing.commission_control import add_commission_control
-from processing.calculator import filter_successful_transactions
+from src.ingestion.reader import BankFileReader
+from src.processing.commission_control import add_commission_control
+from src.processing.calculator import filter_successful_transactions
 
 # Veri yolları
 RAW_PATH = PROJECT_ROOT.parent / "data" / "raw"
