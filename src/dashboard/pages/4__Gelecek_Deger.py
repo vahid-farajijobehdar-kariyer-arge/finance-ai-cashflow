@@ -352,18 +352,21 @@ def render_faiz_oranlari(calculator: FutureValueCalculator):
     """Mevduat faiz oranları tablosu."""
     st.subheader("📋 Mevduat Faiz Oranları")
     
-    if not DEPOSIT_RATES:
+    deposit_rates = calculator.rates if calculator else []
+    
+    if not deposit_rates:
         st.warning("""
         ⚠️ **Faiz Oranları Tanımlanmamış**
         
         Mevduat faiz oranları henüz sisteme yüklenmemiş.
+        Ayarlar sayfasından faiz oranlarını tanımlayabilirsiniz.
         """)
         return
     
     st.info("ℹ️ Bu oranlar yaklaşık değerlerdir ve güncel olmayabilir.")
     
     data = []
-    for rate in DEPOSIT_RATES:
+    for rate in deposit_rates:
         data.append({
             "Banka": rate.bank_name,
             "Vade (Ay)": rate.term_months,
