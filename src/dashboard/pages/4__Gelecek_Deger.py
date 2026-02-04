@@ -352,7 +352,7 @@ def render_faiz_oranlari(calculator: FutureValueCalculator):
     """Mevduat faiz oranları tablosu."""
     st.subheader("📋 Mevduat Faiz Oranları")
     
-    deposit_rates = calculator.rates if calculator else []
+    deposit_rates = calculator.deposit_rates if calculator else []
     
     if not deposit_rates:
         st.warning("""
