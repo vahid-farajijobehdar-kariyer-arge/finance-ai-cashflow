@@ -25,6 +25,12 @@ from processing.commission_control import add_commission_control, get_control_su
 from processing.calculator import filter_successful_transactions, calculate_ground_totals
 from storage.metadata import MetadataManager, FileMetadata
 from storage.cache import FileCache
+from storage.azure_storage import (
+    upload_file_to_azure, 
+    is_azure_configured, 
+    backup_all_raw_files,
+    restore_from_azure
+)
 
 # Import auth module
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -245,6 +251,12 @@ def render_upload_section():
                     if st.button(f"💾 Kaydet", key=f"save_{uploaded_file.name}"):
                         saved_path = save_to_raw(file_content, uploaded_file.name)
                         st.success(f"✅ Kaydedildi: {saved_path.name}")
+                        
+                        # Azure backup (otomatik)
+                        if is_azure_configured():
+                            if upload_file_to_azure(saved_path):
+                                st.info("☁️ Azure'a yedeklendi")
+                        
                         # Clear ALL data caches - data resets on new import
                         clear_all_data_caches()
                         invalidate_data()
@@ -339,6 +351,36 @@ if not check_password():
 st.title("📤 Dosya Yükle")
 st.markdown("Banka ekstre dosyalarını yükleyin ve analiz edin.")
 st.markdown("---")
+
+# Azure Backup/Restore Section
+if is_azure_configured():
+    with st.sidebar:
+        st.subheader("☁️ Azure Backup")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📤 Backup", help="Tüm dosyaları Azure'a yedekle"):
+                with st.spinner("Yedekleniyor..."):
+                    result = backup_all_raw_files()
+                if result.get("success"):
+                    st.success(f"✅ {len(result['success'])} dosya yedeklendi")
+                if result.get("failed"):
+                    st.warning(f"⚠️ {len(result['failed'])} dosya başarısız")
+        
+        with col2:
+            if st.button("📥 Restore", help="Azure'dan dosyaları geri yükle"):
+                with st.spinner("Geri yükleniyor..."):
+                    result = restore_from_azure()
+                if result.get("restored"):
+                    st.success(f"✅ {len(result['restored'])} dosya yüklendi")
+                    clear_all_data_caches()
+                    invalidate_data()
+                    st.rerun()
+                elif result.get("error"):
+                    st.error(result["error"])
+else:
+    with st.sidebar:
+        st.info("☁️ Azure Backup yapılandırılmamış")
 
 # Initialize managers
 init_managers()
