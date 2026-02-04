@@ -211,7 +211,7 @@ def render_veri_bazli_projeksiyon(calculator: FutureValueCalculator):
             "Net Tutar": "₺{:,.2f}"
         }),
         hide_index=True,
-        use_container_width=True
+        width="stretch"
     )
     
     st.markdown("---")
@@ -300,7 +300,7 @@ def render_veri_bazli_projeksiyon(calculator: FutureValueCalculator):
         yaxis_title="Değer (₺)"
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def render_tek_yatirim(calculator: FutureValueCalculator):
@@ -392,9 +392,9 @@ def render_faiz_oranlari(calculator: FutureValueCalculator):
         aspect="auto"
     )
     fig.update_layout(height=400)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     
-    st.dataframe(pivot.style.format("{:.1%}"), height=350, use_container_width=True)
+    st.dataframe(pivot.style.format("{:.1%}"), height=350, width="stretch")
 
 
 def main():

@@ -192,7 +192,7 @@ def render_monthly_trend(df: pd.DataFrame):
         )
     
     fig.update_layout(height=400)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
     
     # Tablo
     with st.expander("📋 Aylık Detay Tablosu"):
@@ -201,7 +201,7 @@ def render_monthly_trend(df: pd.DataFrame):
         monthly_display["Brüt Tutar"] = monthly_display["Brüt Tutar"].apply(lambda x: f"₺{x:,.2f}")
         monthly_display["Komisyon"] = monthly_display["Komisyon"].apply(lambda x: f"₺{x:,.2f}")
         monthly_display["Net Tutar"] = monthly_display["Net Tutar"].apply(lambda x: f"₺{x:,.2f}")
-        st.dataframe(monthly_display, use_container_width=True)
+        st.dataframe(monthly_display, width="stretch")
 
 
 def render_bank_comparison(df: pd.DataFrame):
@@ -231,7 +231,7 @@ def render_bank_comparison(df: pd.DataFrame):
             title="Brüt Tutar Dağılımı"
         )
         fig_pie.update_traces(textposition='inside', textinfo='percent+label')
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_pie, width="stretch")
     
     with col2:
         # Bar grafiği - Komisyon oranları
@@ -245,7 +245,7 @@ def render_bank_comparison(df: pd.DataFrame):
             color="commission_rate",
             color_continuous_scale="RdYlGn_r"
         )
-        st.plotly_chart(fig_bar, use_container_width=True)
+        st.plotly_chart(fig_bar, width="stretch")
     
     # Detay tablo
     with st.expander("📋 Banka Detay Tablosu"):
@@ -254,7 +254,7 @@ def render_bank_comparison(df: pd.DataFrame):
         bank_display["Brüt Tutar"] = bank_display["Brüt Tutar"].apply(lambda x: f"₺{x:,.2f}")
         bank_display["Komisyon"] = bank_display["Komisyon"].apply(lambda x: f"₺{x:,.2f}")
         bank_display["Net Tutar"] = bank_display["Net Tutar"].apply(lambda x: f"₺{x:,.2f}")
-        st.dataframe(bank_display, use_container_width=True)
+        st.dataframe(bank_display, width="stretch")
 
 
 def render_bank_monthly_heatmap(df: pd.DataFrame):
@@ -296,7 +296,7 @@ def render_bank_monthly_heatmap(df: pd.DataFrame):
         color_continuous_scale="Blues"
     )
     fig.update_layout(height=400)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def render_commission_trend(df: pd.DataFrame):
@@ -322,7 +322,7 @@ def render_commission_trend(df: pd.DataFrame):
         markers=True
     )
     fig.update_layout(height=300)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 # Page config

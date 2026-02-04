@@ -138,7 +138,7 @@ def display_installment_breakdown(bank_df: pd.DataFrame):
             color="Toplam Tutar",
             color_continuous_scale="Blues"
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     
     with col2:
         fig = px.pie(
@@ -147,7 +147,7 @@ def display_installment_breakdown(bank_df: pd.DataFrame):
             names="Taksit",
             title="Taksit Yüzde Dağılımı"
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
     
     st.dataframe(
         taksit_summary.style.format({
@@ -156,7 +156,7 @@ def display_installment_breakdown(bank_df: pd.DataFrame):
             "Oran": "%{:.2f}",
             "İşlem Sayısı": "{:,.0f}"
         }),
-        use_container_width=True,
+        width="stretch",
         hide_index=True
     )
 
@@ -184,7 +184,7 @@ def display_monthly_trend(bank_df: pd.DataFrame):
     fig.add_trace(go.Bar(x=monthly["Ay"], y=monthly["Toplam Tutar"], name="Toplam Tutar", marker_color="#1f77b4"))
     fig.add_trace(go.Bar(x=monthly["Ay"], y=monthly["Komisyon"], name="Komisyon", marker_color="#ff7f0e"))
     fig.update_layout(title="Aylık Tutar ve Komisyon", barmode="group")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 def display_commission_control(bank_df: pd.DataFrame):
@@ -208,7 +208,7 @@ def display_commission_control(bank_df: pd.DataFrame):
         st.warning(f"⚠️ {mismatch:,} işlemde oran farkı tespit edildi.")
         diff_df = bank_df[bank_df["rate_match"] == False][["transaction_date", "gross_amount", "commission_rate", "rate_expected", "commission_diff"]].head(10)
         if not diff_df.empty:
-            st.dataframe(diff_df, use_container_width=True, hide_index=True)
+            st.dataframe(diff_df, width="stretch", hide_index=True)
 
 
 def main():

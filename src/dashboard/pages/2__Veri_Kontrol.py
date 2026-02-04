@@ -196,7 +196,7 @@ def display_file_overview(file_stats: list):
             "satir_sayisi": "{:,}"
         }),
         hide_index=True,
-        use_container_width=True
+        width="stretch"
     )
     
     # Show issues for problem files
@@ -302,7 +302,7 @@ def display_data_quality_checks(df: pd.DataFrame):
                 xaxis_title="Tarih",
                 yaxis_title="İşlem Sayısı"
             )
-            st.plotly_chart(fig, key="daily_counts", use_container_width=True)
+            st.plotly_chart(fig, key="daily_counts", width="stretch")
             
             # Check for missing days
             if len(daily_counts) > 1:

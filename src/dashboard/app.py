@@ -399,7 +399,7 @@ def display_bank_summary(df: pd.DataFrame, prefix: str = ""):
                 "Oran": "{:.2%}"
             }),
             hide_index=True,
-            use_container_width=True
+            width="stretch"
         )
     
     with col2:
@@ -438,7 +438,7 @@ def display_bank_summary(df: pd.DataFrame, prefix: str = ""):
                     "Dağılım %": "{:.2f}%"
                 }),
                 hide_index=True,
-                use_container_width=True
+                width="stretch"
             )
 
 
@@ -511,7 +511,7 @@ def display_installment_breakdown(df: pd.DataFrame):
             "Adet %": "{:.2f}%"
         }),
         hide_index=True,
-        use_container_width=True
+        width="stretch"
     )
 
 
@@ -558,7 +558,7 @@ def display_monthly_summary(df: pd.DataFrame):
                 "Oran": "{:.2%}"
             }),
             hide_index=True,
-            use_container_width=True
+            width="stretch"
         )
     
     with col2:
@@ -590,7 +590,7 @@ def display_monthly_summary(df: pd.DataFrame):
                 "Oran": "{:.2%}"
             }),
             hide_index=True,
-            use_container_width=True
+            width="stretch"
         )
 
 
@@ -635,7 +635,7 @@ def display_ground_totals_by_bank_date(df: pd.DataFrame):
     
     st.dataframe(
         pivot_tutar.style.format("₺{:,.2f}").background_gradient(cmap="Blues", axis=None),
-        use_container_width=True
+        width="stretch"
     )
     
     # Commission pivot
@@ -653,7 +653,7 @@ def display_ground_totals_by_bank_date(df: pd.DataFrame):
     
     st.dataframe(
         pivot_komisyon.style.format("₺{:,.2f}").background_gradient(cmap="Oranges", axis=None),
-        use_container_width=True
+        width="stretch"
     )
     
     # Transaction count pivot
@@ -671,7 +671,7 @@ def display_ground_totals_by_bank_date(df: pd.DataFrame):
     
     st.dataframe(
         pivot_adet.style.format("{:,.0f}").background_gradient(cmap="Greens", axis=None),
-        use_container_width=True
+        width="stretch"
     )
     
     # Summary chart - Stacked bar by bank per period
@@ -691,7 +691,7 @@ def display_ground_totals_by_bank_date(df: pd.DataFrame):
         text_auto=".2s"
     )
     fig.update_layout(xaxis_tickangle=-45)
-    st.plotly_chart(fig, use_container_width=True, key="bank_period_chart")
+    st.plotly_chart(fig, width="stretch", key="bank_period_chart")
     
     # Download option
     st.markdown("---")
@@ -823,7 +823,7 @@ def display_control_validation(df: pd.DataFrame):
                     "Beklenen Oran": "{:.4f}"
                 }),
                 hide_index=True,
-                use_container_width=True
+                width="stretch"
             )
     
     # Bank summary with control
@@ -870,7 +870,7 @@ def display_control_validation(df: pd.DataFrame):
         st.dataframe(
             control_summary.style.format(format_dict),
             hide_index=True,
-            use_container_width=True
+            width="stretch"
         )
     
     with col2:
@@ -972,7 +972,7 @@ def display_data_table(df: pd.DataFrame):
             "Beklenen Oran": "{:.2%}"
         }),
         hide_index=True,
-        use_container_width=True
+        width="stretch"
     )
     
     # Export

@@ -119,7 +119,7 @@ def display_current_rates():
         rows.append(row)
     
     df = pd.DataFrame(rows)
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.dataframe(df, width="stretch", hide_index=True)
 
 
 def display_rate_editor():
@@ -230,7 +230,7 @@ def display_import_export():
                         if result.get("has_differences"):
                             st.warning(f"⚠️ {result.get('difference_count')} farklılık bulundu:")
                             diff_df = pd.DataFrame(result.get("differences", []))
-                            st.dataframe(diff_df, use_container_width=True, hide_index=True)
+                            st.dataframe(diff_df, width="stretch", hide_index=True)
                         else:
                             st.success("✅ Oranlar güncel, fark yok.")
                     else:
@@ -305,7 +305,7 @@ def display_history():
                 st.markdown(f"**Banka:** {details.get('bank', '-')}")
                 if "changes" in details:
                     changes_df = pd.DataFrame(details["changes"])
-                    st.dataframe(changes_df, use_container_width=True, hide_index=True)
+                    st.dataframe(changes_df, width="stretch", hide_index=True)
             else:
                 if details.get("source_file"):
                     st.markdown(f"**Kaynak:** {details.get('source_file')}")
@@ -360,7 +360,7 @@ with main_tabs[1]:
         })
     
     if rate_rows:
-        st.dataframe(pd.DataFrame(rate_rows), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(rate_rows), width="stretch", hide_index=True)
     
     # Edit rates
     st.markdown("---")
@@ -490,7 +490,7 @@ with main_tabs[2]:
                         str(bank_data.get("skip_rows", 0))
                     ]
                 }
-                st.dataframe(pd.DataFrame(info_data), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(info_data), width="stretch", hide_index=True)
             
             with col2:
                 st.markdown("#### 🔄 Sütun Eşleştirmeleri")
@@ -501,7 +501,7 @@ with main_tabs[2]:
                         "Ham Sütun": list(raw_columns.keys()),
                         "Hedef Sütun": list(raw_columns.values())
                     }
-                    st.dataframe(pd.DataFrame(mapping_data), use_container_width=True, hide_index=True)
+                    st.dataframe(pd.DataFrame(mapping_data), width="stretch", hide_index=True)
                 else:
                     st.info("Bu banka için sütun eşleştirmesi tanımlanmamış.")
         
@@ -521,7 +521,7 @@ with main_tabs[2]:
             })
         
         summary_df = pd.DataFrame(summary_rows)
-        st.dataframe(summary_df, use_container_width=True, hide_index=True)
+        st.dataframe(summary_df, width="stretch", hide_index=True)
         
         # banks.yaml dosyasını indir
         st.markdown("---")

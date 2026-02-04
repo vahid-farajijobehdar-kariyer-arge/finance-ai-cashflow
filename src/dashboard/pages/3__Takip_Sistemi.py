@@ -207,7 +207,7 @@ with col1:
         hole=0.4
     )
     fig_pie.update_traces(textposition='inside', textinfo='percent+label')
-    st.plotly_chart(fig_pie, use_container_width=True)
+    st.plotly_chart(fig_pie, width="stretch")
 
 with col2:
     # Bank bar chart
@@ -220,7 +220,7 @@ with col2:
         text_auto=".2s"
     )
     fig_bar.update_layout(showlegend=False, xaxis_tickangle=-45)
-    st.plotly_chart(fig_bar, use_container_width=True)
+    st.plotly_chart(fig_bar, width="stretch")
 
 # Installment distribution
 st.markdown("---")
@@ -253,7 +253,7 @@ fig_taksit = px.bar(
     text_auto=".2s"
 )
 fig_taksit.update_layout(xaxis_tickangle=0)
-st.plotly_chart(fig_taksit, use_container_width=True)
+st.plotly_chart(fig_taksit, width="stretch")
 
 # Data table
 st.markdown("---")
@@ -269,7 +269,7 @@ with st.expander("Veri Tablosunu Göster", expanded=False):
             "Beklenen Komisyon": "₺{:,.2f}",
             "Beklenen Net": "₺{:,.2f}"
         }),
-        use_container_width=True,
+        width="stretch",
         hide_index=True
     )
 

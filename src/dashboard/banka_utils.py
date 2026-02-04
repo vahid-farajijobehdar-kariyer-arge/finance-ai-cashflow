@@ -163,7 +163,7 @@ def goster_taksit_dagilimi(df: pd.DataFrame, grafik_key: str = "taksit_chart"):
         color_continuous_scale="Reds"
     )
     
-    st.plotly_chart(fig, use_container_width=True, key=grafik_key)
+    st.plotly_chart(fig, width="stretch", key=grafik_key)
 
 
 def goster_aylik_trend(df: pd.DataFrame, grafik_key: str = "aylik_chart"):
@@ -197,7 +197,7 @@ def goster_aylik_trend(df: pd.DataFrame, grafik_key: str = "aylik_chart"):
         labels={"value": "Tutar (₺)", "Ay": "Ay", "variable": "Metrik"}
     )
     
-    st.plotly_chart(fig, use_container_width=True, key=grafik_key)
+    st.plotly_chart(fig, width="stretch", key=grafik_key)
 
 
 def goster_veri_tablosu(df: pd.DataFrame, max_satir: int = 100):
@@ -230,7 +230,7 @@ def goster_veri_tablosu(df: pd.DataFrame, max_satir: int = 100):
     
     goster_df = df[mevcut_sutunlar].head(max_satir).rename(columns=sutun_isimleri)
     
-    st.dataframe(goster_df, use_container_width=True, hide_index=True)
+    st.dataframe(goster_df, width="stretch", hide_index=True)
     
     if len(df) > max_satir:
         st.caption(f"ℹ️ İlk {max_satir} satır gösteriliyor. Toplam: {len(df):,} satır")

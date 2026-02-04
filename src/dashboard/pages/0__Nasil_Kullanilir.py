@@ -63,7 +63,7 @@ banks_data = {
 }
 
 import pandas as pd
-st.dataframe(pd.DataFrame(banks_data), use_container_width=True, hide_index=True)
+st.dataframe(pd.DataFrame(banks_data), width="stretch", hide_index=True)
 
 st.markdown("---")
 
@@ -109,12 +109,8 @@ col1, col2 = st.columns(2)
 with col1:
     st.markdown("""
     **Teknik Destek:**
-    - Email: vahid.farajihobehdar@kariyer.net
+    - Email: vahid.farajijobehdar@kariyer.net
     """)
-    
-    # Teams button
-    teams_url = "https://teams.microsoft.com/l/chat/0/0?users=vahid.farajihobehdar@kariyer.net"
-    st.link_button("💬 Teams'den Yaz", teams_url, use_container_width=True)
 
 with col2:
     st.markdown("""

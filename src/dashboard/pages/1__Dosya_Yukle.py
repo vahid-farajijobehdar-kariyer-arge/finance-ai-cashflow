@@ -546,7 +546,7 @@ def render_upload_section():
                                        "net_amount", "installment_count", "commission_rate",
                                        "rate_expected", "rate_match"]
                         display_cols = [c for c in display_cols if c in df.columns]
-                        st.dataframe(df[display_cols].head(20), use_container_width=True)
+                        st.dataframe(df[display_cols].head(20), width="stretch")
 
 
 def render_existing_files():
