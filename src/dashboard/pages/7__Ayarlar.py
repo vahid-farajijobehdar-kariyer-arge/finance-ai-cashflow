@@ -1,15 +1,16 @@
 """
-💳 Komisyon Oranları - Banka komisyon oranlarını görüntüle ve düzenle
+⚙️ Ayarlar - Komisyon oranları ve Excel sütun eşleştirmeleri
 
 Özellikler:
-- Oranları görüntüle
-- Oranları düzenle
+- Komisyon oranlarını görüntüle ve düzenle
+- Excel/CSV sütun eşleştirmelerini görüntüle
 - Dosyadan veya URL'den içe aktar
 - Değişiklik geçmişi
 """
 
 import streamlit as st
 import pandas as pd
+import yaml
 import sys
 from pathlib import Path
 from datetime import datetime
@@ -22,10 +23,14 @@ if str(PROJECT_ROOT) not in sys.path:
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from auth import check_password
 
+# Config paths
+CONFIG_PATH = PROJECT_ROOT.parent / "config"
+BANKS_CONFIG = CONFIG_PATH / "banks.yaml"
+
 
 st.set_page_config(
-    page_title="Komisyon Oranları - POS Komisyon",
-    page_icon="💳",
+    page_title="Ayarlar - POS Komisyon",
+    page_icon="⚙️",
     layout="wide"
 )
 
@@ -33,8 +38,8 @@ st.set_page_config(
 if not check_password():
     st.stop()
 
-st.title("💳 Komisyon Oranları")
-st.markdown("**Banka komisyon oranlarını görüntüle ve düzenle**")
+st.title("⚙️ Ayarlar")
+st.markdown("**Komisyon oranları ve sütun eşleştirmeleri**")
 st.markdown("---")
 
 # Rate Manager import
@@ -287,19 +292,119 @@ def display_history():
 
 
 # Main layout with tabs
-tabs = st.tabs(["📋 Oranlar", "✏️ Düzenle", "📥 İçe/Dışa Aktar", "📜 Geçmiş"])
+main_tabs = st.tabs(["💳 Komisyon Oranları", "📊 Excel Sütunları"])
 
-with tabs[0]:
-    display_current_rates()
+with main_tabs[0]:
+    # Komisyon Oranları Tab
+    tabs = st.tabs(["📋 Oranlar", "✏️ Düzenle", "📥 İçe/Dışa Aktar", "📜 Geçmiş"])
 
-with tabs[1]:
-    display_rate_editor()
+    with tabs[0]:
+        display_current_rates()
 
-with tabs[2]:
-    display_import_export()
+    with tabs[1]:
+        display_rate_editor()
 
-with tabs[3]:
-    display_history()
+    with tabs[2]:
+        display_import_export()
+
+    with tabs[3]:
+        display_history()
+
+with main_tabs[1]:
+    # Excel Sütunları Tab
+    st.subheader("📊 Banka Sütun Eşleştirmeleri")
+    st.markdown("Her banka için Excel/CSV sütunlarının nasıl eşleştirildiğini gösterir.")
+    
+    # Load banks.yaml
+    try:
+        if BANKS_CONFIG.exists():
+            with open(BANKS_CONFIG, "r", encoding="utf-8") as f:
+                banks_config = yaml.safe_load(f)
+        else:
+            st.error(f"banks.yaml dosyası bulunamadı: {BANKS_CONFIG}")
+            banks_config = {}
+    except Exception as e:
+        st.error(f"Yapılandırma dosyası okunamadı: {e}")
+        banks_config = {}
+    
+    if banks_config:
+        banks = banks_config.get("banks", {})
+        
+        # Banka seçimi
+        bank_options = {
+            key: data.get("display_name", data.get("name", key))
+            for key, data in banks.items()
+        }
+        
+        selected_bank = st.selectbox(
+            "Banka Seçin",
+            options=list(bank_options.keys()),
+            format_func=lambda x: bank_options[x],
+            key="excel_bank_select"
+        )
+        
+        if selected_bank:
+            bank_data = banks[selected_bank]
+            
+            col1, col2 = st.columns(2, gap="large")
+            
+            with col1:
+                st.markdown("#### 📄 Banka Bilgileri")
+                info_data = {
+                    "Özellik": ["Kod", "Görünen Ad", "Dosya Deseni", "Ayırıcı", "Encoding", "Atlanan Satır"],
+                    "Değer": [
+                        selected_bank,
+                        bank_data.get("display_name", "-"),
+                        bank_data.get("file_pattern", "-"),
+                        bank_data.get("delimiter", "Excel"),
+                        bank_data.get("encoding", "UTF-8"),
+                        str(bank_data.get("skip_rows", 0))
+                    ]
+                }
+                st.dataframe(pd.DataFrame(info_data), use_container_width=True, hide_index=True)
+            
+            with col2:
+                st.markdown("#### 🔄 Sütun Eşleştirmeleri")
+                raw_columns = bank_data.get("raw_columns", {})
+                
+                if raw_columns:
+                    mapping_data = {
+                        "Ham Sütun": list(raw_columns.keys()),
+                        "Hedef Sütun": list(raw_columns.values())
+                    }
+                    st.dataframe(pd.DataFrame(mapping_data), use_container_width=True, hide_index=True)
+                else:
+                    st.info("Bu banka için sütun eşleştirmesi tanımlanmamış.")
+        
+        # Tüm eşleştirmeleri gösteren özet tablo
+        st.markdown("---")
+        st.markdown("#### 📋 Tüm Bankaların Özet Tablosu")
+        
+        summary_rows = []
+        for bank_key, bank_data in banks.items():
+            raw_columns = bank_data.get("raw_columns", {})
+            summary_rows.append({
+                "Banka": bank_data.get("display_name", bank_key),
+                "Kod": bank_key,
+                "Dosya Formatı": "CSV" if bank_data.get("delimiter") else "Excel",
+                "Sütun Sayısı": len(raw_columns),
+                "Encoding": bank_data.get("encoding", "UTF-8")
+            })
+        
+        summary_df = pd.DataFrame(summary_rows)
+        st.dataframe(summary_df, use_container_width=True, hide_index=True)
+        
+        # banks.yaml dosyasını indir
+        st.markdown("---")
+        with open(BANKS_CONFIG, "r", encoding="utf-8") as f:
+            yaml_content = f.read()
+        
+        st.download_button(
+            label="📥 banks.yaml İndir",
+            data=yaml_content,
+            file_name="banks.yaml",
+            mime="text/yaml"
+        )
 
 # Footer
 st.markdown("---")

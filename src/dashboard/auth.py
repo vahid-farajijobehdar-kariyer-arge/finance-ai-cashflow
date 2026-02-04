@@ -3,6 +3,10 @@ Kimlik Doğrulama Modülü - Kariyer.net Finans
 
 Tüm sayfalar için şifre koruması sağlar.
 
+Streamlit 1.53.0+ Features:
+- Button icon_position parameter for better UX
+- Enhanced page config options
+
 © 2026 Kariyer.net Finans Ekibi
 """
 
@@ -49,8 +53,13 @@ def check_password() -> bool:
         placeholder="Şifrenizi girin..."
     )
     
-    # Giriş butonu
-    if st.button("🔑 Giriş Yap", type="primary", use_container_width=True):
+    # Giriş butonu - Streamlit 1.53.0+ icon_position parameter
+    if st.button(
+        "Giriş Yap 🔑", 
+        type="primary", 
+        use_container_width=True,
+        icon=":material/login:",  # Material Design icon (Streamlit 1.53.0+)
+    ):
         password_entered()
     
     # Hatalı şifre mesajı

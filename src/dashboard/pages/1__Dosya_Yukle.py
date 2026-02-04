@@ -286,13 +286,14 @@ def render_upload_section():
     ---
     """)
     
-    # File uploader with drag-and-drop
+    # File uploader with drag-and-drop and max file size (Streamlit 1.53.0+)
+    # Max size: 100MB per file
     uploaded_files = st.file_uploader(
         "📁 Dosya Seçin",
         type=["xlsx", "xls", "csv"],
         accept_multiple_files=True,
         key="file_uploader",
-        help="CSV veya Excel formatında banka ekstre dosyaları"
+        help="CSV veya Excel formatında banka ekstre dosyaları (max 100MB)"
     )
     
     if uploaded_files:

@@ -3,14 +3,40 @@ Cache Management Utilities.
 
 Provides centralized cache clearing for data refresh on file import.
 Design: Data resets each time new files are imported.
+
+Streamlit 1.53.0+ Features:
+- Session-scoped caching: st.cache_data(scope="session")
+- Better cache isolation between users
 """
 
 import streamlit as st
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Literal
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Cache scope type for Streamlit 1.53.0+
+CacheScope = Literal["app", "session"]
+
+
+def get_cache_decorator(scope: CacheScope = "session"):
+    """Get a cache decorator with specified scope.
+    
+    Streamlit 1.53.0+ supports session-scoped caching for better isolation.
+    
+    Args:
+        scope: "app" (shared across all users) or "session" (per-user)
+    
+    Returns:
+        Configured cache_data decorator
+    
+    Example:
+        @get_cache_decorator(scope="session")
+        def load_user_data():
+            return expensive_operation()
+    """
+    return st.cache_data(scope=scope)
 
 
 def clear_all_data_caches():
@@ -20,6 +46,8 @@ def clear_all_data_caches():
     all pages reload fresh data from disk.
     
     This implements the "data reset on import" design pattern.
+    
+    Note: Streamlit 1.53.0+ clears both app-scoped and session-scoped caches.
     """
     # Clear Streamlit's built-in cache
     st.cache_data.clear()

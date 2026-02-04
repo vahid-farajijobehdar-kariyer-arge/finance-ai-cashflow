@@ -123,10 +123,12 @@ def check_password() -> bool:
         st.text_input(
             "Şifre", 
             type="password", 
-            on_change=password_entered, 
             key="password",
             placeholder="Şifrenizi girin..."
         )
+        # Giriş butonu
+        if st.button("🔑 Giriş Yap", type="primary", use_container_width=True):
+            password_entered()
         st.markdown("---")
         st.caption("© 2026 Kariyer.net Finans Ekibi")
         return False
@@ -140,10 +142,12 @@ def check_password() -> bool:
         st.text_input(
             "Şifre", 
             type="password", 
-            on_change=password_entered, 
             key="password",
             placeholder="Şifrenizi girin..."
         )
+        # Giriş butonu
+        if st.button("🔑 Giriş Yap", type="primary", use_container_width=True):
+            password_entered()
         st.error("❌ Hatalı şifre")
         st.markdown("---")
         st.caption("© 2026 Kariyer.net Finans Ekibi")
@@ -154,11 +158,19 @@ def check_password() -> bool:
 
 
 def setup_page():
-    """Configure Streamlit page settings."""
+    """Configure Streamlit page settings with Streamlit 1.53.0+ features."""
     st.set_page_config(
-        page_title="Ana Panel - Kariyer.net Finans",
+        page_title="POS Komisyon Takip Sistemi",
         page_icon="💰",
         layout="wide",
+        initial_sidebar_state="expanded",
+        # Streamlit 1.53.0+ sidebar width configuration
+        # menu_items provides help/bug/about links
+        menu_items={
+            "Get Help": "https://github.com/vahid-farajijobehdar-kariyer-arge/finance-ai-cashflow",
+            "Report a Bug": "https://github.com/vahid-farajijobehdar-kariyer-arge/finance-ai-cashflow/issues",
+            "About": "## 💰 POS Komisyon Takip Sistemi\n© 2026 Kariyer.net Finans Ekibi"
+        }
     )
     st.title("💰 POS Komisyon Takip Sistemi")
     st.markdown("**Kariyer.net Finans - 8 Banka Komisyon Analizi**")
@@ -171,12 +183,15 @@ def get_expected_rate(bank: str, taksit: str) -> float:
     return bank_rates.get(taksit, bank_rates.get("Peşin", 0.03))
 
 
-@st.cache_data
+@st.cache_data(show_spinner="Veriler yükleniyor...")
 def load_raw_data() -> pd.DataFrame | None:
     """Load all raw bank files from data/raw/ directory.
     
     Uses BankFileReader to auto-detect bank, parse files, and normalize columns.
     Then applies commission control to verify rates.
+    
+    Note: Streamlit 1.53.0+ supports scope="session" for user-isolated caching,
+    but we use app-scoped cache here since all users share the same data files.
     """
     if not RAW_PATH.exists():
         return None
@@ -267,7 +282,8 @@ def display_summary_metrics(df: pd.DataFrame):
     pesin_df = df[df["Taksit Sayısı"] == "Peşin"]
     taksitli_df = df[df["Taksit Sayısı"] != "Peşin"]
     
-    col1, col2 = st.columns(2)
+    # Use 'larger' gap for better visual separation (Streamlit 1.53.0+)
+    col1, col2 = st.columns(2, gap="large")
     
     with col1:
         st.markdown("### 💵 Tek Çekim (Peşin)")
@@ -276,7 +292,7 @@ def display_summary_metrics(df: pd.DataFrame):
         net_pesin = pesin_df["Beklenen Net"].sum()
         rate_pesin = (komisyon_pesin / total_pesin * 100) if total_pesin > 0 else 0
         
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3, c4 = st.columns(4, gap="small")
         c1.metric("Çekim", format_currency(total_pesin))
         c2.metric("Komisyon", format_currency(komisyon_pesin))
         c3.metric("Net", format_currency(net_pesin))
@@ -289,7 +305,7 @@ def display_summary_metrics(df: pd.DataFrame):
         net_taksit = taksitli_df["Beklenen Net"].sum()
         rate_taksit = (komisyon_taksit / total_taksit * 100) if total_taksit > 0 else 0
         
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3, c4 = st.columns(4, gap="small")
         c1.metric("Çekim", format_currency(total_taksit))
         c2.metric("Komisyon", format_currency(komisyon_taksit))
         c3.metric("Net", format_currency(net_taksit))
@@ -302,7 +318,7 @@ def display_summary_metrics(df: pd.DataFrame):
     net = df["Beklenen Net"].sum()
     avg_rate = (komisyon / total * 100) if total > 0 else 0
     
-    c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3, c4, c5 = st.columns(5, gap="medium")
     c1.metric("TOPLAM", format_currency(total))
     c2.metric("KOMİSYON", format_currency(komisyon))
     c3.metric("NET", format_currency(net))

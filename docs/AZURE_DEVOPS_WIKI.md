@@ -50,14 +50,14 @@
 
 | Sayfa | Dosya | Açıklama |
 |-------|-------|----------|
-| 🏠 Ana Sayfa | `app.py` | Özet metrikleri ve grafikler |
-| 📖 Nasıl Kullanılır | `0__Nasil_Kullanilir.py` | Kullanım kılavuzu |
+| 🏠 Ana Sayfa | `app.py` | Giriş ekranı ve özet |
 | 📤 Dosya Yükle | `1__Dosya_Yukle.py` | Banka dosyalarını yükle |
-| 💰 Gelecek Değer | `2__Gelecek_Deger.py` | Yatırım hesaplayıcı |
-| 🔍 Veri Kontrol | `3__Veri_Kontrol.py` | Veri doğrulama |
-| 🏦 Banka Detay | `4__Banka_Detay.py` | Banka bazlı analiz |
-| 📑 Detay Rapor | `5__Detay_Rapor.py` | Excel rapor export |
-| 📊 Komisyon Oranları | `6__Komisyon_Oranlari.py` | Oran yönetimi |
+| 🔍 Veri Kontrol | `2__Veri_Kontrol.py` | Veri doğrulama |
+| 💰 Takip Sistemi | `3__Takip_Sistemi.py` | Ana analiz dashboard'u |
+| 💹 Gelecek Değer | `4__Gelecek_Deger.py` | Yatırım hesaplayıcı |
+| 🏦 Banka Detay | `5__Banka_Detay.py` | Banka bazlı analiz |
+| 📈 Trend Analizi | `6__Trend_Analizi.py` | Aylık/yıllık trendler |
+| ⚙️ Ayarlar | `7__Ayarlar.py` | Komisyon oranları ve sütun eşleştirmeleri |
 
 ---
 
