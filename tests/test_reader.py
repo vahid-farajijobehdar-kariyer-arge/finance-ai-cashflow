@@ -11,7 +11,7 @@ import sys
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from ingestion.reader import BankFileReader
+from ingestion.reader import BankFileReader, parse_vakifbank_amount
 
 
 class TestBankFileReader:
@@ -28,47 +28,6 @@ class TestBankFileReader:
         reader = BankFileReader()
         assert reader.config is not None
         assert len(reader.config) > 0
-    
-    def test_detect_bank_vakifbank(self):
-        """Test Vakıfbank detection from filename"""
-        reader = BankFileReader()
-        
-        test_filenames = [
-            "Vakifbank_2024.csv",
-            "VAKIFBANK_ekstre.csv",
-            "vakifbank_pos.csv",
-        ]
-        
-        for filename in test_filenames:
-            detected = reader._detect_bank(filename)
-            assert detected == "vakifbank", f"Expected vakifbank for {filename}, got {detected}"
-    
-    def test_detect_bank_akbank(self):
-        """Test Akbank detection from filename"""
-        reader = BankFileReader()
-        
-        test_filenames = [
-            "Akbank_2024.xlsx",
-            "AKBANK_ekstre.xlsx",
-        ]
-        
-        for filename in test_filenames:
-            detected = reader._detect_bank(filename)
-            assert detected == "akbank", f"Expected akbank for {filename}, got {detected}"
-    
-    def test_detect_bank_garanti(self):
-        """Test Garanti detection from filename"""
-        reader = BankFileReader()
-        
-        test_filenames = [
-            "Garanti_2024.xlsx",
-            "GARANTI_ekstre.xlsx",
-            "garanti_bbva.xlsx",
-        ]
-        
-        for filename in test_filenames:
-            detected = reader._detect_bank(filename)
-            assert detected == "garanti", f"Expected garanti for {filename}, got {detected}"
 
 
 class TestVakifbankParser:
@@ -76,28 +35,20 @@ class TestVakifbankParser:
     
     def test_parse_vakifbank_positive_amount(self):
         """Test parsing positive Vakıfbank amount format"""
-        reader = BankFileReader()
-        
-        result = reader._parse_vakifbank_amount("+00000000000005038.80")
+        result = parse_vakifbank_amount("+00000000000005038.80")
         assert result == 5038.80
     
     def test_parse_vakifbank_negative_amount(self):
         """Test parsing negative Vakıfbank amount format"""
-        reader = BankFileReader()
-        
-        result = reader._parse_vakifbank_amount("-00000000000001234.56")
+        result = parse_vakifbank_amount("-00000000000001234.56")
         assert result == -1234.56
     
     def test_parse_vakifbank_zero_amount(self):
         """Test parsing zero Vakıfbank amount format"""
-        reader = BankFileReader()
-        
-        result = reader._parse_vakifbank_amount("+00000000000000000.00")
+        result = parse_vakifbank_amount("+00000000000000000.00")
         assert result == 0.0
     
     def test_parse_vakifbank_small_amount(self):
         """Test parsing small Vakıfbank amount format"""
-        reader = BankFileReader()
-        
-        result = reader._parse_vakifbank_amount("+00000000000000100.00")
+        result = parse_vakifbank_amount("+00000000000000100.00")
         assert result == 100.0

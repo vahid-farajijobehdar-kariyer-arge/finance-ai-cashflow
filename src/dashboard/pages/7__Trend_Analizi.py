@@ -66,7 +66,7 @@ def get_all_files_with_metadata() -> list:
     return all_files
 
 
-def detect_bank_from_filename(filename: str) -> str:
+def detect_bank_from_filename(filename: str) -> str | None:
     """Detect bank name from filename."""
     bank_patterns = {
         "vakıf": "Vakıfbank", "vakif": "Vakıfbank",
