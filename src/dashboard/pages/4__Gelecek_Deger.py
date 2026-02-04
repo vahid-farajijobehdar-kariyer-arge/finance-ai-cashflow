@@ -9,6 +9,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import yaml
 from pathlib import Path
 import sys
 
@@ -17,7 +18,7 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent.resolve()
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from processing.future_value import FutureValueCalculator, DEPOSIT_RATES
+from processing.future_value import FutureValueCalculator, DepositRate
 from ingestion.reader import BankFileReader
 from processing.commission_control import add_commission_control
 from processing.calculator import filter_successful_transactions
@@ -26,14 +27,51 @@ from processing.calculator import filter_successful_transactions
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from auth import check_password
 
+# Format utilities
+try:
+    from format_utils import format_turkish_currency, format_turkish_number, format_turkish_percent
+except ImportError:
+    # Fallback
+    def format_turkish_currency(v, s="₺", d=2):
+        return f"{v:,.{d}f} {s}".replace(",", "X").replace(".", ",").replace("X", ".")
+    def format_turkish_number(v, d=2):
+        return f"{v:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    def format_turkish_percent(v, d=2):
+        return f"%{v*100:.{d}f}".replace(".", ",")
+
 # Veri yolları
 RAW_PATH = PROJECT_ROOT.parent / "data" / "raw"
+SETTINGS_PATH = PROJECT_ROOT.parent / "config" / "settings.yaml"
+
+
+def load_deposit_rates_from_settings():
+    """Ayarlardan mevduat oranlarını yükle."""
+    try:
+        if SETTINGS_PATH.exists():
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                settings = yaml.safe_load(f)
+            
+            deposit_rates = settings.get("deposit_rates", {})
+            if deposit_rates:
+                rates = []
+                for bank_key, bank_data in deposit_rates.items():
+                    bank_name = bank_data.get("name", bank_key.title())
+                    bank_rates = bank_data.get("rates", {})
+                    for term, rate in bank_rates.items():
+                        rates.append(DepositRate(bank_name, rate, int(term)))
+                return rates
+    except Exception:
+        pass
+    return None
 
 
 def init_calculator():
     """Gelecek değer hesaplayıcısını başlat."""
-    if "fv_calculator" not in st.session_state:
-        st.session_state.fv_calculator = FutureValueCalculator()
+    # Önce ayarlardan oranları yükle
+    custom_rates = load_deposit_rates_from_settings()
+    
+    if "fv_calculator" not in st.session_state or custom_rates:
+        st.session_state.fv_calculator = FutureValueCalculator(custom_rates)
     return st.session_state.fv_calculator
 
 

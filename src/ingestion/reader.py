@@ -63,6 +63,81 @@ def parse_vakifbank_amount(value) -> float:
         return 0.0
 
 
+def parse_turkish_number(value) -> float:
+    """Parse Turkish formatted number: 1.234.567,89 → 1234567.89
+    
+    Supports multiple formats:
+    - Turkish: 1.234.567,89 (dot as thousands, comma as decimal)
+    - English: 1,234,567.89 (comma as thousands, dot as decimal)
+    - Vakıfbank: +00000000000005038.80
+    - Plain: 1234567.89 or 1234567,89
+    
+    Args:
+        value: String or numeric value.
+        
+    Returns:
+        Parsed float value.
+    """
+    if pd.isna(value):
+        return 0.0
+    
+    if isinstance(value, (int, float)):
+        return float(value)
+    
+    s = str(value).strip()
+    if not s:
+        return 0.0
+    
+    # Remove currency symbols
+    s = s.replace("₺", "").replace("TL", "").replace("TRY", "").strip()
+    
+    # Check for negative
+    is_negative = s.startswith("-")
+    s = s.lstrip("+-")
+    
+    # Vakıfbank format: leading zeros
+    if re.match(r"^0+\d", s):
+        s = s.lstrip("0") or "0"
+    
+    # Remove spaces
+    s = s.replace(" ", "")
+    
+    # Detect format based on separators
+    dot_count = s.count(".")
+    comma_count = s.count(",")
+    
+    if dot_count > 0 and comma_count > 0:
+        # Both separators present
+        last_dot = s.rfind(".")
+        last_comma = s.rfind(",")
+        
+        if last_comma > last_dot:
+            # Turkish format: 1.234.567,89
+            s = s.replace(".", "").replace(",", ".")
+        else:
+            # English format: 1,234,567.89
+            s = s.replace(",", "")
+    elif comma_count == 1 and dot_count == 0:
+        # Single comma as decimal: 1234567,89 (Turkish)
+        s = s.replace(",", ".")
+    elif comma_count > 1:
+        # Multiple commas as thousands: 1,234,567 (English)
+        s = s.replace(",", "")
+    # If only dots, assume English format
+    
+    # Remove trailing dot
+    s = s.rstrip(".")
+    
+    if not s or s == ".":
+        return 0.0
+    
+    try:
+        result = float(s)
+        return -result if is_negative else result
+    except ValueError:
+        return 0.0
+
+
 def normalize_column_name(name: str) -> str:
     """Normalize column names for robust matching."""
     if name is None:

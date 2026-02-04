@@ -49,13 +49,27 @@ st.markdown("---")
 
 
 def format_currency(value: float) -> str:
-    """Format currency values for display."""
-    if abs(value) >= 1_000_000:
-        return f"₺{value/1_000_000:.1f}M"
-    elif abs(value) >= 10_000:
-        return f"₺{value/1_000:.0f}K"
+    """Format currency values in Turkish format with K/M suffixes.
+    
+    Turkish format: dot as thousands separator, comma as decimal.
+    """
+    if value is None:
+        return "-"
+    
+    is_negative = value < 0
+    value = abs(value)
+    
+    if value >= 1_000_000:
+        formatted = f"{value/1_000_000:.2f}".replace(".", ",") + "M"
+    elif value >= 10_000:
+        formatted = f"{value/1_000:.1f}".replace(".", ",") + "K"
     else:
-        return f"₺{value:,.0f}"
+        formatted = f"{value:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    
+    if is_negative:
+        formatted = "-" + formatted
+    
+    return f"₺{formatted}"
 
 
 @st.cache_data(show_spinner="Veriler yükleniyor...")

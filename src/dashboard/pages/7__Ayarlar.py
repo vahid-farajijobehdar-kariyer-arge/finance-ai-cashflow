@@ -26,6 +26,28 @@ from auth import check_password
 # Config paths
 CONFIG_PATH = PROJECT_ROOT.parent / "config"
 BANKS_CONFIG = CONFIG_PATH / "banks.yaml"
+SETTINGS_CONFIG = CONFIG_PATH / "settings.yaml"
+
+
+def load_settings():
+    """Load settings.yaml configuration."""
+    try:
+        if SETTINGS_CONFIG.exists():
+            with open(SETTINGS_CONFIG, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f)
+    except Exception:
+        pass
+    return {}
+
+
+def save_settings(settings: dict):
+    """Save settings.yaml configuration."""
+    try:
+        with open(SETTINGS_CONFIG, "w", encoding="utf-8") as f:
+            yaml.dump(settings, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        return True
+    except Exception:
+        return False
 
 
 st.set_page_config(
@@ -292,7 +314,7 @@ def display_history():
 
 
 # Main layout with tabs
-main_tabs = st.tabs(["💳 Komisyon Oranları", "📊 Excel Sütunları"])
+main_tabs = st.tabs(["💳 Komisyon Oranları", "� Mevduat Oranları", "📊 Excel Sütunları"])
 
 with main_tabs[0]:
     # Komisyon Oranları Tab
@@ -311,6 +333,113 @@ with main_tabs[0]:
         display_history()
 
 with main_tabs[1]:
+    # Mevduat Oranları Tab (Gelecek Değer için)
+    st.subheader("💹 Mevduat Faiz Oranları")
+    st.markdown("Gelecek Değer hesaplayıcısında kullanılan banka mevduat faiz oranları.")
+    
+    # Load current settings
+    settings = load_settings()
+    deposit_rates = settings.get("deposit_rates", {})
+    
+    if not deposit_rates:
+        st.warning("Henüz mevduat oranı tanımlanmamış. Varsayılan oranlar kullanılacak.")
+    
+    # Display current rates
+    st.markdown("#### 📋 Mevcut Mevduat Oranları")
+    
+    rate_rows = []
+    for bank_key, bank_data in deposit_rates.items():
+        bank_name = bank_data.get("name", bank_key)
+        rates = bank_data.get("rates", {})
+        rate_rows.append({
+            "Banka": bank_name,
+            "Kod": bank_key,
+            "3 Ay": f"%{rates.get(3, 0)*100:.1f}" if rates.get(3) else "-",
+            "6 Ay": f"%{rates.get(6, 0)*100:.1f}" if rates.get(6) else "-",
+            "12 Ay": f"%{rates.get(12, 0)*100:.1f}" if rates.get(12) else "-"
+        })
+    
+    if rate_rows:
+        st.dataframe(pd.DataFrame(rate_rows), use_container_width=True, hide_index=True)
+    
+    # Edit rates
+    st.markdown("---")
+    st.markdown("#### ✏️ Oranları Düzenle")
+    
+    bank_list = list(deposit_rates.keys()) if deposit_rates else ["ziraat", "halkbank", "vakifbank", "garanti", "akbank", "isbank", "ykb", "qnb"]
+    bank_names = {k: deposit_rates.get(k, {}).get("name", k.title()) for k in bank_list}
+    
+    selected_deposit_bank = st.selectbox(
+        "Banka Seçin",
+        options=bank_list,
+        format_func=lambda x: bank_names.get(x, x),
+        key="deposit_bank_select"
+    )
+    
+    if selected_deposit_bank:
+        current_bank_rates = deposit_rates.get(selected_deposit_bank, {}).get("rates", {})
+        
+        with st.form(key=f"deposit_rates_{selected_deposit_bank}"):
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                rate_3 = st.number_input(
+                    "3 Aylık Oran (%)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=current_bank_rates.get(3, 0.40) * 100,
+                    step=0.1,
+                    format="%.1f",
+                    key=f"dep_rate_3_{selected_deposit_bank}"
+                )
+            
+            with col2:
+                rate_6 = st.number_input(
+                    "6 Aylık Oran (%)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=current_bank_rates.get(6, 0.38) * 100,
+                    step=0.1,
+                    format="%.1f",
+                    key=f"dep_rate_6_{selected_deposit_bank}"
+                )
+            
+            with col3:
+                rate_12 = st.number_input(
+                    "12 Aylık Oran (%)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=current_bank_rates.get(12, 0.36) * 100,
+                    step=0.1,
+                    format="%.1f",
+                    key=f"dep_rate_12_{selected_deposit_bank}"
+                )
+            
+            submitted = st.form_submit_button("💾 Oranları Kaydet", use_container_width=True)
+            
+            if submitted:
+                # Update settings
+                if "deposit_rates" not in settings:
+                    settings["deposit_rates"] = {}
+                
+                if selected_deposit_bank not in settings["deposit_rates"]:
+                    settings["deposit_rates"][selected_deposit_bank] = {
+                        "name": bank_names.get(selected_deposit_bank, selected_deposit_bank.title())
+                    }
+                
+                settings["deposit_rates"][selected_deposit_bank]["rates"] = {
+                    3: round(rate_3 / 100, 4),
+                    6: round(rate_6 / 100, 4),
+                    12: round(rate_12 / 100, 4)
+                }
+                
+                if save_settings(settings):
+                    st.success(f"✅ {bank_names.get(selected_deposit_bank)} mevduat oranları güncellendi!")
+                    st.rerun()
+                else:
+                    st.error("❌ Oranlar kaydedilemedi.")
+
+with main_tabs[2]:
     # Excel Sütunları Tab
     st.subheader("📊 Banka Sütun Eşleştirmeleri")
     st.markdown("Her banka için Excel/CSV sütunlarının nasıl eşleştirildiğini gösterir.")

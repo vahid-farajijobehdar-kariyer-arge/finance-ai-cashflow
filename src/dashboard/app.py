@@ -84,13 +84,48 @@ COMMISSION_RATES = {
 
 
 def format_currency(value: float) -> str:
-    """Format currency values for display, with K/M suffixes for large numbers."""
-    if abs(value) >= 1_000_000:
-        return f"₺{value/1_000_000:.1f}M"
-    elif abs(value) >= 10_000:
-        return f"₺{value/1_000:.0f}K"
+    """Format currency values for display in Turkish format with K/M suffixes.
+    
+    Turkish format: dot as thousands separator, comma as decimal.
+    Examples: 1.234.567,89 TL, 1,23M ₺, 456,78K ₺
+    """
+    if value is None:
+        return "-"
+    
+    is_negative = value < 0
+    value = abs(value)
+    
+    if value >= 1_000_000:
+        formatted = f"{value/1_000_000:.2f}".replace(".", ",") + "M"
+    elif value >= 10_000:
+        formatted = f"{value/1_000:.1f}".replace(".", ",") + "K"
     else:
-        return f"₺{value:,.0f}"
+        # Full Turkish format for smaller numbers
+        formatted = f"{value:,.0f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    
+    if is_negative:
+        formatted = "-" + formatted
+    
+    return f"₺{formatted}"
+
+
+def format_currency_full(value: float) -> str:
+    """Format currency in full Turkish format (no abbreviations).
+    
+    Example: 1.234.567,89 ₺
+    """
+    if value is None:
+        return "-"
+    
+    is_negative = value < 0
+    value = abs(value)
+    
+    formatted = f"{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    
+    if is_negative:
+        formatted = "-" + formatted
+    
+    return f"{formatted} ₺"
 
 
 import os

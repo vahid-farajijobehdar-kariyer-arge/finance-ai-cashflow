@@ -5,6 +5,16 @@ paths:
   processed_data: "data/processed"
   output: "data/output"
 
+# Number formatting / Sayı formatı
+formatting:
+  # Türkiye formatı: nokta bin ayırıcı, virgül ondalık
+  thousands_separator: "."
+  decimal_separator: ","
+  currency_symbol: "₺"
+  currency_code: "TRY"
+  # Ondalık basamak sayısı
+  decimal_places: 2
+
 # Processing settings
 processing:
   # Only include these transaction types
@@ -34,3 +44,70 @@ reports:
   date_format: "%Y-%m-%d"
   currency: "TRY"
   currency_symbol: "₺"
+
+# Mevduat faiz oranları (Gelecek Değer hesaplayıcı için)
+# Oranlar yıllık, ondalık olarak (0.42 = %42)
+deposit_rates:
+  # Ziraat Bankası
+  ziraat:
+    name: "Ziraat Bankası"
+    rates:
+      3: 0.42   # 3 aylık
+      6: 0.40   # 6 aylık
+      12: 0.38  # 12 aylık
+  
+  # Halkbank
+  halkbank:
+    name: "Halkbank"
+    rates:
+      3: 0.43
+      6: 0.41
+      12: 0.39
+  
+  # Vakıfbank
+  vakifbank:
+    name: "Vakıfbank"
+    rates:
+      3: 0.42
+      6: 0.40
+      12: 0.38
+  
+  # Garanti BBVA
+  garanti:
+    name: "Garanti BBVA"
+    rates:
+      3: 0.40
+      6: 0.38
+      12: 0.36
+  
+  # Akbank
+  akbank:
+    name: "Akbank"
+    rates:
+      3: 0.41
+      6: 0.39
+      12: 0.37
+  
+  # İş Bankası
+  isbank:
+    name: "İş Bankası"
+    rates:
+      3: 0.40
+      6: 0.38
+      12: 0.36
+  
+  # Yapı Kredi
+  ykb:
+    name: "Yapı Kredi"
+    rates:
+      3: 0.41
+      6: 0.39
+      12: 0.37
+  
+  # QNB Finansbank
+  qnb:
+    name: "QNB Finansbank"
+    rates:
+      3: 0.42
+      6: 0.40
+      12: 0.38
