@@ -524,16 +524,6 @@ with st.expander("Export dosyaları nereye kaydediliyor?"):
     - **Excel:** .xlsx formatı (modern Excel)
     """)
 
-with st.expander("Yeni banka nasıl eklenir?"):
-    st.markdown("""
-    Yeni banka eklemek için:
-    
-    1. `config/banks.yaml` dosyasına banka tanımı ekleyin
-    2. `config/commission_rates.yaml` dosyasına oranları ekleyin
-    3. Uygulamayı yeniden başlatın
-    
-    Detaylı bilgi için README.md dosyasına bakın.
-    """)
 
 st.markdown("---")
 
@@ -555,19 +545,10 @@ with col1:
 
 with col2:
     st.markdown("""
-    **👨‍💻 Geliştirici**
-    - Vahid Faraji Jobehdar
+    **👨‍💻 Destek**
     - vahid.farajijobehdar@kariyer.net
+    - 💬 [Teams: Vahid Faraji Jobehdar](https://teams.microsoft.com/l/chat/0/0?users=vahid.farajijobehdar@kariyer.net)
     - Kariyer.net Finans Ekibi
-    """)
-
-with col3:
-    st.markdown("""
-    **📚 Kaynaklar**
-    - GitHub Repository
-    - Azure DevOps Wiki
-    - README.md
-    - spec/specification.md
     """)
 
 # Footer
