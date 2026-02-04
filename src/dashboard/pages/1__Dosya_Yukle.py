@@ -109,30 +109,82 @@ def init_managers():
     return st.session_state.metadata_manager, st.session_state.file_cache
 
 
+# Desteklenen banka listesi (dropdown'da kullanılan)
+BANK_OPTIONS = ["Vakıfbank", "Akbank", "Garanti", "Halkbank", "Ziraat", "YKB", "QNB", "İşbankası"]
+
+# Banka adı eşleştirme - API'den gelen adları standart adlara çevir
+BANK_NAME_MAPPING = {
+    # Akbank
+    "akbank": "Akbank",
+    "akbank t.a.s.": "Akbank",
+    "akbank t.a.ş.": "Akbank",
+    # Garanti
+    "garanti": "Garanti",
+    "garanti bbva": "Garanti",
+    "t. garanti bankasi a.s.": "Garanti",
+    # Vakıfbank
+    "vakıfbank": "Vakıfbank",
+    "vakifbank": "Vakıfbank",
+    "t. vakiflar bankasi t.a.o.": "Vakıfbank",
+    "t. vakıflar bankası t.a.o.": "Vakıfbank",
+    # Halkbank
+    "halkbank": "Halkbank",
+    "t. halk bankasi a.s.": "Halkbank",
+    # Ziraat
+    "ziraat": "Ziraat",
+    "t.c. ziraat bankasi a.s.": "Ziraat",
+    "ziraat bankası": "Ziraat",
+    # YKB
+    "ykb": "YKB",
+    "yapı kredi": "YKB",
+    "yapıkredi": "YKB",
+    "yapi ve kredi bankasi a.s.": "YKB",
+    # QNB
+    "qnb": "QNB",
+    "qnb finansbank": "QNB",
+    "qnb finansbank a.s.": "QNB",
+    "finans": "QNB",
+    # İşbankası
+    "işbankası": "İşbankası",
+    "isbank": "İşbankası",
+    "işbank": "İşbankası",
+    "t. is bankasi a.s.": "İşbankası",
+    "türkiye iş bankası": "İşbankası",
+}
+
+
+def normalize_bank_name(bank_name: str) -> str:
+    """Normalize bank name to standard dropdown value."""
+    if not bank_name:
+        return None
+    
+    bank_lower = bank_name.lower().strip()
+    
+    # Önce tam eşleşme dene
+    if bank_lower in BANK_NAME_MAPPING:
+        return BANK_NAME_MAPPING[bank_lower]
+    
+    # Parçalı eşleşme dene
+    for pattern, standard_name in BANK_NAME_MAPPING.items():
+        if pattern in bank_lower or bank_lower in pattern:
+            return standard_name
+    
+    # Dropdown'daki değerlerle doğrudan eşleşme
+    for opt in BANK_OPTIONS:
+        if opt.lower() in bank_lower or bank_lower in opt.lower():
+            return opt
+    
+    return None
+
+
 def detect_bank_from_filename(filename: str) -> str:
     """Detect bank name from filename."""
-    bank_patterns = {
-        "vakıf": "Vakıfbank",
-        "vakif": "Vakıfbank", 
-        "akbank": "Akbank",
-        "garanti": "Garanti",
-        "halkbank": "Halkbank",
-        "halk": "Halkbank",
-        "ziraat": "Ziraat",
-        "ykb": "YKB",
-        "yapı kredi": "YKB",
-        "yapıkredi": "YKB",
-        "iş bankası": "İşbankası",
-        "isbank": "İşbankası",
-        "işbank": "İşbankası",
-        "qnb": "QNB",
-        "finans": "QNB",
-    }
-    
     filename_lower = filename.lower()
-    for pattern, bank_name in bank_patterns.items():
+    
+    for pattern, standard_name in BANK_NAME_MAPPING.items():
         if pattern in filename_lower:
-            return bank_name
+            return standard_name
+    
     return None
 
 
@@ -366,15 +418,25 @@ def render_upload_section():
                 st.markdown("---")
                 st.markdown("**📅 Dosya Bilgileri**")
                 
-                bank_name = analysis.get("bank_name", "Bilinmiyor")
+                raw_bank_name = analysis.get("bank_name", "Bilinmiyor")
+                normalized_bank = normalize_bank_name(raw_bank_name)
+                bank_recognized = normalized_bank is not None
                 
                 col_bank, col_date = st.columns(2)
                 with col_bank:
+                    # Eğer banka tanındıysa, doğru index'i bul
+                    if bank_recognized and normalized_bank in BANK_OPTIONS:
+                        default_index = BANK_OPTIONS.index(normalized_bank)
+                    else:
+                        default_index = 0
+                    
                     selected_bank = st.selectbox(
                         "Banka",
-                        options=["Vakıfbank", "Akbank", "Garanti", "Halkbank", "Ziraat", "YKB", "QNB", "İşbankası"],
-                        index=["Vakıfbank", "Akbank", "Garanti", "Halkbank", "Ziraat", "YKB", "QNB", "İşbankası"].index(bank_name) if bank_name in ["Vakıfbank", "Akbank", "Garanti", "Halkbank", "Ziraat", "YKB", "QNB", "İşbankası"] else 0,
-                        key=f"bank_{uploaded_file.name}"
+                        options=BANK_OPTIONS,
+                        index=default_index,
+                        key=f"bank_{uploaded_file.name}",
+                        disabled=bank_recognized,  # Tanındıysa değiştirmeye gerek yok
+                        help=f"Otomatik tanınan: {raw_bank_name}" if bank_recognized else "Banka seçin"
                     )
                 
                 with col_date:
@@ -385,10 +447,16 @@ def render_upload_section():
                         help="Ekstre ayı (dosya bu aya kaydedilir)"
                     )
                 
-                # Save button
+                # Kaydet butonu
+                # Eğer banka tanındıysa yeşil başarı mesajı göster
+                if bank_recognized:
+                    st.success(f"✅ Banka otomatik tanındı: **{normalized_bank}**")
+                
                 col1, col2, col3 = st.columns([1, 1, 2])
+                
                 with col1:
-                    if st.button(f"💾 Kaydet", key=f"save_{uploaded_file.name}"):
+                    save_label = "💾 Kaydet" if not bank_recognized else "💾 Onayla ve Kaydet"
+                    if st.button(save_label, key=f"save_{uploaded_file.name}", type="primary" if bank_recognized else "secondary"):
                         # Organize kaydet: BANKA/YYYY-MM/dosya.xlsx
                         file_datetime = datetime.combine(selected_date, datetime.min.time())
                         saved_path = save_to_raw_organized(
