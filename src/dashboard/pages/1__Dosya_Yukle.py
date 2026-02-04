@@ -161,8 +161,43 @@ def ensure_within_raw(dest_path: Path) -> None:
         raise ValueError("Geçersiz dosya yolu")
 
 
+def save_to_raw_organized(file_content: bytes, filename: str, bank_name: str, file_date: datetime = None) -> Path:
+    """
+    Save uploaded file to data/raw/ organized by bank/month.
+    
+    Structure: data/raw/BANKA/YYYY-MM/filename.xlsx
+    """
+    # Banka klasörü
+    bank_folder = bank_name.replace(" ", "_").upper() if bank_name else "UNKNOWN"
+    
+    # Ay klasörü (dosya tarihi veya bugün)
+    if file_date:
+        month_folder = file_date.strftime("%Y-%m")
+    else:
+        month_folder = datetime.now().strftime("%Y-%m")
+    
+    # Hedef klasör oluştur
+    dest_folder = RAW_PATH / bank_folder / month_folder
+    dest_folder.mkdir(parents=True, exist_ok=True)
+    
+    sanitized_name = sanitize_filename(filename)
+    dest_path = dest_folder / sanitized_name
+    
+    # Dosya varsa timestamp ekle
+    if dest_path.exists():
+        stem = dest_path.stem
+        suffix = dest_path.suffix
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        dest_path = dest_folder / f"{stem}_{timestamp}{suffix}"
+    
+    with open(dest_path, "wb") as f:
+        f.write(file_content)
+    
+    return dest_path
+
+
 def save_to_raw(file_content: bytes, filename: str) -> Path:
-    """Save uploaded file to data/raw/ directory."""
+    """Save uploaded file to data/raw/ directory (legacy - flat structure)."""
     RAW_PATH.mkdir(parents=True, exist_ok=True)
     sanitized_name = sanitize_filename(filename)
     dest_path = RAW_PATH / sanitized_name
@@ -245,12 +280,42 @@ def render_upload_section():
                         st.metric("Komisyon", f"₺{totals.get('total_commission', 0):,.2f}")
                         st.metric("Net", f"₺{totals.get('total_net', 0):,.2f}")
                 
+                # Tarih ve Kaydetme Seçenekleri
+                st.markdown("---")
+                st.markdown("**📅 Dosya Bilgileri**")
+                
+                bank_name = analysis.get("bank_name", "Bilinmiyor")
+                
+                col_bank, col_date = st.columns(2)
+                with col_bank:
+                    selected_bank = st.selectbox(
+                        "Banka",
+                        options=["Vakıfbank", "Akbank", "Garanti", "Halkbank", "Ziraat", "YKB", "QNB", "İşbankası"],
+                        index=["Vakıfbank", "Akbank", "Garanti", "Halkbank", "Ziraat", "YKB", "QNB", "İşbankası"].index(bank_name) if bank_name in ["Vakıfbank", "Akbank", "Garanti", "Halkbank", "Ziraat", "YKB", "QNB", "İşbankası"] else 0,
+                        key=f"bank_{uploaded_file.name}"
+                    )
+                
+                with col_date:
+                    selected_date = st.date_input(
+                        "Ekstre Dönemi",
+                        value=datetime.now(),
+                        key=f"date_{uploaded_file.name}",
+                        help="Ekstre ayı (dosya bu aya kaydedilir)"
+                    )
+                
                 # Save button
                 col1, col2, col3 = st.columns([1, 1, 2])
                 with col1:
                     if st.button(f"💾 Kaydet", key=f"save_{uploaded_file.name}"):
-                        saved_path = save_to_raw(file_content, uploaded_file.name)
-                        st.success(f"✅ Kaydedildi: {saved_path.name}")
+                        # Organize kaydet: BANKA/YYYY-MM/dosya.xlsx
+                        file_datetime = datetime.combine(selected_date, datetime.min.time())
+                        saved_path = save_to_raw_organized(
+                            file_content, 
+                            uploaded_file.name, 
+                            selected_bank,
+                            file_datetime
+                        )
+                        st.success(f"✅ Kaydedildi: {selected_bank}/{selected_date.strftime('%Y-%m')}/{saved_path.name}")
                         
                         # Azure backup (otomatik)
                         if is_azure_configured():
@@ -280,59 +345,156 @@ def render_upload_section():
 
 
 def render_existing_files():
-    """Show files already in data/raw/."""
-    st.header("📂 Mevcut Dosyalar")
+    """Show files already in data/raw/ organized by bank and month."""
+    st.header("📂 Dosya Yönetimi")
     
     if not RAW_PATH.exists():
         st.info("📁 Henüz dosya yüklenmedi")
         return
     
-    files = list(RAW_PATH.glob("*.csv")) + list(RAW_PATH.glob("*.xlsx")) + list(RAW_PATH.glob("*.xls"))
-    files = [f for f in files if not f.name.startswith(".")]
+    # Tüm dosyaları topla (hem düz hem organize yapı)
+    all_files = []
     
-    if not files:
+    # Düz yapıdaki dosyalar
+    for f in RAW_PATH.glob("*"):
+        if f.is_file() and not f.name.startswith(".") and f.suffix.lower() in [".csv", ".xlsx", ".xls"]:
+            all_files.append({
+                "path": f,
+                "bank": detect_bank_from_filename(f.name) or "Diğer",
+                "month": datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m"),
+                "name": f.name,
+                "size": f.stat().st_size,
+                "mtime": datetime.fromtimestamp(f.stat().st_mtime)
+            })
+    
+    # Organize yapıdaki dosyalar (BANKA/YYYY-MM/dosya.xlsx)
+    for bank_dir in RAW_PATH.iterdir():
+        if bank_dir.is_dir() and not bank_dir.name.startswith("."):
+            for month_dir in bank_dir.iterdir():
+                if month_dir.is_dir():
+                    for f in month_dir.glob("*"):
+                        if f.is_file() and f.suffix.lower() in [".csv", ".xlsx", ".xls"]:
+                            all_files.append({
+                                "path": f,
+                                "bank": bank_dir.name.replace("_", " ").title(),
+                                "month": month_dir.name,
+                                "name": f.name,
+                                "size": f.stat().st_size,
+                                "mtime": datetime.fromtimestamp(f.stat().st_mtime)
+                            })
+    
+    if not all_files:
         st.info("📁 Henüz dosya yüklenmedi")
         return
     
-    # Bulk actions
-    col_info, col_clear = st.columns([3, 1])
-    with col_info:
-        st.markdown(f"**{len(files)} dosya mevcut:**")
-    with col_clear:
-        if st.button("🗑️ Tümünü Sil", type="secondary", help="Tüm dosyaları sil ve verileri sıfırla"):
-            for f in files:
-                try:
-                    f.unlink()
-                except Exception:
-                    pass
-            clear_all_data_caches()
-            invalidate_data()
-            st.success("Tüm dosyalar silindi!")
-            st.rerun()
+    # Özet istatistikler
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("📄 Toplam Dosya", len(all_files))
+    with col2:
+        unique_banks = len(set(f["bank"] for f in all_files))
+        st.metric("🏦 Banka", unique_banks)
+    with col3:
+        unique_months = len(set(f["month"] for f in all_files))
+        st.metric("📅 Ay", unique_months)
     
     st.markdown("---")
     
-    for f in sorted(files, key=lambda x: x.stat().st_mtime, reverse=True):
-        col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+    # Görünüm seçimi
+    view_mode = st.radio(
+        "Görünüm",
+        ["🏦 Banka Bazlı", "📅 Ay Bazlı", "📋 Liste"],
+        horizontal=True,
+        key="file_view_mode"
+    )
+    
+    if view_mode == "🏦 Banka Bazlı":
+        # Bankaya göre grupla
+        banks = {}
+        for f in all_files:
+            bank = f["bank"]
+            if bank not in banks:
+                banks[bank] = []
+            banks[bank].append(f)
         
-        with col1:
-            bank = detect_bank_from_filename(f.name) or "?"
-            st.markdown(f"📄 **{f.name}** ({bank})")
+        for bank, files in sorted(banks.items()):
+            with st.expander(f"🏦 {bank} ({len(files)} dosya)", expanded=False):
+                for f in sorted(files, key=lambda x: x["month"], reverse=True):
+                    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+                    with col1:
+                        st.markdown(f"📄 {f['name']}")
+                    with col2:
+                        st.markdown(f"📅 {f['month']}")
+                    with col3:
+                        st.markdown(f"{f['size']/1024:.1f} KB")
+                    with col4:
+                        if st.button("🗑️", key=f"del_{f['path']}", help="Sil"):
+                            f['path'].unlink()
+                            clear_all_data_caches()
+                            invalidate_data()
+                            st.rerun()
+    
+    elif view_mode == "📅 Ay Bazlı":
+        # Aya göre grupla
+        months = {}
+        for f in all_files:
+            month = f["month"]
+            if month not in months:
+                months[month] = []
+            months[month].append(f)
         
-        with col2:
-            size_kb = f.stat().st_size / 1024
-            st.markdown(f"{size_kb:.1f} KB")
-        
-        with col3:
-            mtime = datetime.fromtimestamp(f.stat().st_mtime)
-            st.markdown(mtime.strftime("%d/%m/%Y"))
-        
-        with col4:
-            if st.button("🗑️", key=f"delete_{f.name}", help="Dosyayı sil"):
-                f.unlink()
-                st.success(f"Silindi: {f.name}")
-                # Clear ALL data caches - data resets on delete
+        for month, files in sorted(months.items(), reverse=True):
+            with st.expander(f"📅 {month} ({len(files)} dosya)", expanded=False):
+                for f in sorted(files, key=lambda x: x["bank"]):
+                    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+                    with col1:
+                        st.markdown(f"📄 {f['name']}")
+                    with col2:
+                        st.markdown(f"🏦 {f['bank']}")
+                    with col3:
+                        st.markdown(f"{f['size']/1024:.1f} KB")
+                    with col4:
+                        if st.button("🗑️", key=f"del_{f['path']}", help="Sil"):
+                            f['path'].unlink()
+                            clear_all_data_caches()
+                            invalidate_data()
+                            st.rerun()
+    
+    else:  # Liste görünümü
+        # Toplu silme
+        col_info, col_clear = st.columns([3, 1])
+        with col_info:
+            st.markdown(f"**{len(all_files)} dosya mevcut**")
+        with col_clear:
+            if st.button("🗑️ Tümünü Sil", type="secondary"):
+                for f in all_files:
+                    try:
+                        f['path'].unlink()
+                    except Exception:
+                        pass
                 clear_all_data_caches()
+                invalidate_data()
+                st.success("Tüm dosyalar silindi!")
+                st.rerun()
+        
+        st.markdown("---")
+        
+        for f in sorted(all_files, key=lambda x: x["mtime"], reverse=True):
+            col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 0.5])
+            with col1:
+                st.markdown(f"📄 **{f['name']}**")
+            with col2:
+                st.markdown(f"🏦 {f['bank']}")
+            with col3:
+                st.markdown(f"📅 {f['month']}")
+            with col4:
+                st.markdown(f"{f['size']/1024:.1f} KB")
+            with col5:
+                if st.button("🗑️", key=f"del_list_{f['path']}"):
+                    f['path'].unlink()
+                    clear_all_data_caches()
+                    invalidate_data()
+                    st.rerun()
                 invalidate_data()
                 st.rerun()
 
