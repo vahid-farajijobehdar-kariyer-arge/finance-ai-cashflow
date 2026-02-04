@@ -102,13 +102,29 @@ def get_data_version() -> str:
     if not raw_path.exists():
         return "no_data"
     
-    files = sorted(raw_path.glob("*"))
+    # Tüm dosyaları topla (kök + alt klasörler)
+    all_files = []
+    
+    # Kök dizindeki dosyalar
+    for f in raw_path.glob("*"):
+        if f.is_file() and not f.name.startswith('.'):
+            all_files.append(f)
+    
+    # Alt klasörlerdeki dosyalar (BANKA/YYYY-MM/dosya.xlsx)
+    for bank_dir in raw_path.iterdir():
+        if bank_dir.is_dir() and not bank_dir.name.startswith("."):
+            for month_dir in bank_dir.iterdir():
+                if month_dir.is_dir():
+                    for f in month_dir.glob("*"):
+                        if f.is_file() and not f.name.startswith("."):
+                            all_files.append(f)
+    
+    files = sorted(all_files, key=lambda x: str(x))
     file_info = []
     
     for f in files:
-        if f.is_file() and not f.name.startswith('.'):
-            stat = f.stat()
-            file_info.append(f"{f.name}:{stat.st_size}:{stat.st_mtime}")
+        stat = f.stat()
+        file_info.append(f"{f.name}:{stat.st_size}:{stat.st_mtime}")
     
     if not file_info:
         return "empty"

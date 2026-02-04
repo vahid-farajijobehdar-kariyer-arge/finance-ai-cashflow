@@ -38,8 +38,24 @@ def load_all_files_with_metadata():
         return None, []
     
     reader = BankFileReader()
-    files = list(RAW_PATH.glob("*.csv")) + list(RAW_PATH.glob("*.xlsx")) + list(RAW_PATH.glob("*.xls"))
-    files = [f for f in files if not f.name.startswith(".")]
+    
+    # Hem kök dizindeki hem de alt klasörlerdeki dosyaları tara
+    # Alt klasör yapısı: BANKA/YYYY-MM/dosya.xlsx
+    files = []
+    
+    # Kök dizindeki dosyalar
+    for f in RAW_PATH.glob("*"):
+        if f.is_file() and not f.name.startswith(".") and f.suffix.lower() in [".csv", ".xlsx", ".xls"]:
+            files.append(f)
+    
+    # Alt klasörlerdeki dosyalar (BANKA/YYYY-MM/dosya.xlsx)
+    for bank_dir in RAW_PATH.iterdir():
+        if bank_dir.is_dir() and not bank_dir.name.startswith("."):
+            for month_dir in bank_dir.iterdir():
+                if month_dir.is_dir():
+                    for f in month_dir.glob("*"):
+                        if f.is_file() and f.suffix.lower() in [".csv", ".xlsx", ".xls"]:
+                            files.append(f)
     
     if not files:
         return None, []

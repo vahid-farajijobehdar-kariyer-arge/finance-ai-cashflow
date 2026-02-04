@@ -691,12 +691,32 @@ class BankFileReader:
         if not directory.exists():
             raise ValueError(f"Directory not found: {directory}")
         
-        # Find all supported files (handle both cases for extensions)
+        # Find all supported files
+        # 1. Kök dizindeki dosyalar
         files = (
             list(directory.glob("*.csv")) + list(directory.glob("*.CSV")) +
             list(directory.glob("*.xlsx")) + list(directory.glob("*.XLSX")) +
             list(directory.glob("*.xls")) + list(directory.glob("*.XLS"))
         )
+        
+        # 2. Alt klasörlerdeki dosyalar (BANKA/YYYY-MM/dosya.xlsx yapısı)
+        for bank_dir in directory.iterdir():
+            if bank_dir.is_dir() and not bank_dir.name.startswith("."):
+                # Doğrudan banka klasöründeki dosyalar
+                files.extend(
+                    list(bank_dir.glob("*.csv")) + list(bank_dir.glob("*.CSV")) +
+                    list(bank_dir.glob("*.xlsx")) + list(bank_dir.glob("*.XLSX")) +
+                    list(bank_dir.glob("*.xls")) + list(bank_dir.glob("*.XLS"))
+                )
+                # Ay klasörlerindeki dosyalar (BANKA/YYYY-MM/)
+                for month_dir in bank_dir.iterdir():
+                    if month_dir.is_dir() and not month_dir.name.startswith("."):
+                        files.extend(
+                            list(month_dir.glob("*.csv")) + list(month_dir.glob("*.CSV")) +
+                            list(month_dir.glob("*.xlsx")) + list(month_dir.glob("*.XLSX")) +
+                            list(month_dir.glob("*.xls")) + list(month_dir.glob("*.XLS"))
+                        )
+        
         # Remove duplicates (in case of case-insensitive filesystem)
         files = list(set(files))
         
