@@ -43,6 +43,34 @@ RAW_PATH = PROJECT_ROOT.parent / "data" / "raw"
 logger = logging.getLogger(__name__)
 
 
+def init_upload_state():
+    """Initialize upload session state."""
+    # Bu session'da kaydedilen dosyaları takip et
+    if "saved_file_hashes" not in st.session_state:
+        st.session_state.saved_file_hashes = set()
+    
+    # File uploader key - değiştirerek uploader'ı sıfırla
+    if "uploader_key" not in st.session_state:
+        st.session_state.uploader_key = 0
+
+
+def mark_file_as_saved(file_hash: str):
+    """Dosyayı kaydedildi olarak işaretle."""
+    st.session_state.saved_file_hashes.add(file_hash)
+
+
+def is_just_saved(file_hash: str) -> bool:
+    """Dosya az önce kaydedildi mi kontrol et."""
+    return file_hash in st.session_state.get("saved_file_hashes", set())
+
+
+def reset_uploader():
+    """File uploader'ı sıfırla."""
+    st.session_state.uploader_key += 1
+    # Kaydedilen dosya listesini temizle
+    st.session_state.saved_file_hashes = set()
+
+
 def calculate_file_hash(file_content: bytes) -> str:
     """Dosya içeriğinin MD5 hash'ini hesapla."""
     return hashlib.md5(file_content).hexdigest()
@@ -90,6 +118,11 @@ def check_duplicate(file_content: bytes) -> tuple:
         (is_duplicate, existing_path) tuple
     """
     new_hash = calculate_file_hash(file_content)
+    
+    # Bu session'da az önce kaydedildiyse duplike değil
+    if is_just_saved(new_hash):
+        return False, None
+    
     existing_hashes = get_existing_file_hashes()
     
     if new_hash in existing_hashes:
@@ -327,6 +360,9 @@ def save_to_raw(file_content: bytes, filename: str) -> Path:
 
 def render_upload_section():
     """Render file upload section with drag-and-drop."""
+    # Session state başlat
+    init_upload_state()
+    
     st.header("📤 Dosya Yükle")
     
     st.markdown("""
@@ -338,13 +374,12 @@ def render_upload_section():
     ---
     """)
     
-    # File uploader with drag-and-drop and max file size (Streamlit 1.53.0+)
-    # Max size: 100MB per file
+    # File uploader with dynamic key (değişen key ile uploader sıfırlanır)
     uploaded_files = st.file_uploader(
         "📁 Dosya Seçin",
         type=["xlsx", "xls", "csv"],
         accept_multiple_files=True,
-        key="file_uploader",
+        key=f"file_uploader_{st.session_state.uploader_key}",
         help="CSV veya Excel formatında banka ekstre dosyaları (max 100MB)"
     )
     
@@ -372,10 +407,22 @@ def render_upload_section():
                         )
                     with col_dup2:
                         if st.button("🗑️ Mevcut dosyayı sil", key=f"del_existing_{uploaded_file.name}"):
-                            existing_path.unlink()
-                            st.success("Mevcut dosya silindi. Yeni dosyayı kaydedebilirsiniz.")
-                            clear_all_data_caches()
-                            st.rerun()
+                            try:
+                                existing_path.unlink()
+                                # Boş kalan klasörleri temizle
+                                parent = existing_path.parent
+                                if parent != RAW_PATH and parent.exists() and not any(parent.iterdir()):
+                                    parent.rmdir()
+                                    # Banka klasörü de boşsa onu da sil
+                                    bank_parent = parent.parent
+                                    if bank_parent != RAW_PATH and bank_parent.exists() and not any(bank_parent.iterdir()):
+                                        bank_parent.rmdir()
+                                
+                                st.success("✅ Mevcut dosya silindi.")
+                                clear_all_data_caches()
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ Silme hatası: {e}")
                     
                     if skip_duplicate:
                         st.info("ℹ️ Bu dosya atlanacak.")
@@ -457,6 +504,10 @@ def render_upload_section():
                 with col1:
                     save_label = "💾 Kaydet" if not bank_recognized else "💾 Onayla ve Kaydet"
                     if st.button(save_label, key=f"save_{uploaded_file.name}", type="primary" if bank_recognized else "secondary"):
+                        # Dosya hash'ini kaydet (duplike kontrolünde atlanması için)
+                        file_hash = calculate_file_hash(file_content)
+                        mark_file_as_saved(file_hash)
+                        
                         # Organize kaydet: BANKA/YYYY-MM/dosya.xlsx
                         file_datetime = datetime.combine(selected_date, datetime.min.time())
                         saved_path = save_to_raw_organized(
@@ -475,7 +526,11 @@ def render_upload_section():
                         # Clear ALL data caches - data resets on new import
                         clear_all_data_caches()
                         invalidate_data()
-                        st.info("🔄 Tüm veriler yenilendi. Sayfa yeniden yüklenecek...")
+                        
+                        # File uploader'ı sıfırla (aynı dosyayı tekrar göstermesin)
+                        reset_uploader()
+                        
+                        st.info("🔄 Dosya kaydedildi. Sayfa yenileniyor...")
                         st.rerun()
                 
                 with col2:
