@@ -7,6 +7,7 @@ Desteklenen formatlar: Excel (.xlsx, .xls), CSV
 © 2026 Kariyer.net Finans Ekibi
 """
 
+import hashlib
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -40,6 +41,61 @@ from cache_utils import clear_all_data_caches, invalidate_data
 # Data paths
 RAW_PATH = PROJECT_ROOT.parent / "data" / "raw"
 logger = logging.getLogger(__name__)
+
+
+def calculate_file_hash(file_content: bytes) -> str:
+    """Dosya içeriğinin MD5 hash'ini hesapla."""
+    return hashlib.md5(file_content).hexdigest()
+
+
+def get_existing_file_hashes() -> dict:
+    """Mevcut tüm dosyaların hash'lerini döndür."""
+    hashes = {}
+    
+    if not RAW_PATH.exists():
+        return hashes
+    
+    # Düz dosyalar
+    for f in RAW_PATH.glob("*"):
+        if f.is_file() and not f.name.startswith(".") and f.suffix.lower() in [".csv", ".xlsx", ".xls"]:
+            try:
+                with open(f, "rb") as file:
+                    file_hash = hashlib.md5(file.read()).hexdigest()
+                    hashes[file_hash] = f
+            except Exception:
+                pass
+    
+    # Organize yapıdaki dosyalar
+    for bank_dir in RAW_PATH.iterdir():
+        if bank_dir.is_dir() and not bank_dir.name.startswith("."):
+            for month_dir in bank_dir.iterdir():
+                if month_dir.is_dir():
+                    for f in month_dir.glob("*"):
+                        if f.is_file() and f.suffix.lower() in [".csv", ".xlsx", ".xls"]:
+                            try:
+                                with open(f, "rb") as file:
+                                    file_hash = hashlib.md5(file.read()).hexdigest()
+                                    hashes[file_hash] = f
+                            except Exception:
+                                pass
+    
+    return hashes
+
+
+def check_duplicate(file_content: bytes) -> tuple:
+    """
+    Dosyanın daha önce yüklenip yüklenmediğini kontrol et.
+    
+    Returns:
+        (is_duplicate, existing_path) tuple
+    """
+    new_hash = calculate_file_hash(file_content)
+    existing_hashes = get_existing_file_hashes()
+    
+    if new_hash in existing_hashes:
+        return True, existing_hashes[new_hash]
+    
+    return False, None
 
 
 def init_managers():
@@ -246,7 +302,32 @@ def render_upload_section():
         for uploaded_file in uploaded_files:
             file_content = uploaded_file.read()
             
+            # Duplicate kontrolü
+            is_duplicate, existing_path = check_duplicate(file_content)
+            
             with st.expander(f"📄 {uploaded_file.name}", expanded=True):
+                # Duplicate uyarısı
+                if is_duplicate:
+                    st.warning(f"⚠️ **DUPLIKE DOSYA!** Bu dosya zaten mevcut: `{existing_path.relative_to(RAW_PATH)}`")
+                    
+                    col_dup1, col_dup2 = st.columns(2)
+                    with col_dup1:
+                        skip_duplicate = st.checkbox(
+                            "Bu dosyayı atla",
+                            value=True,
+                            key=f"skip_{uploaded_file.name}"
+                        )
+                    with col_dup2:
+                        if st.button("🗑️ Mevcut dosyayı sil", key=f"del_existing_{uploaded_file.name}"):
+                            existing_path.unlink()
+                            st.success("Mevcut dosya silindi. Yeni dosyayı kaydedebilirsiniz.")
+                            clear_all_data_caches()
+                            st.rerun()
+                    
+                    if skip_duplicate:
+                        st.info("ℹ️ Bu dosya atlanacak.")
+                        continue
+                
                 col1, col2 = st.columns([2, 1])
                 
                 with col1:
