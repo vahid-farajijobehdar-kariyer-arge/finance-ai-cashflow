@@ -66,9 +66,10 @@ stages:
               mergeTestResults: true
             condition: always()
 
-          - task: PublishCodeCoverageResults@2
+          - task: PublishCodeCoverageResults@1
             displayName: '📈 Code Coverage Yayınla'
             inputs:
+              codeCoverageTool: 'Cobertura'
               summaryFileLocation: '$(System.DefaultWorkingDirectory)/coverage.xml'
             condition: always()
 
