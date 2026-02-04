@@ -45,10 +45,13 @@ def check_password() -> bool:
     st.text_input(
         "Şifre", 
         type="password", 
-        on_change=password_entered, 
         key="password",
         placeholder="Şifrenizi girin..."
     )
+    
+    # Giriş butonu
+    if st.button("🔑 Giriş Yap", type="primary", use_container_width=True):
+        password_entered()
     
     # Hatalı şifre mesajı
     if "password_correct" in st.session_state and not st.session_state["password_correct"]:
