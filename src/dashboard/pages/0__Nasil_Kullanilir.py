@@ -385,40 +385,6 @@ BankaAdı_YYYY-MM_açıklama.xlsx
 - `rapor.xlsx` ❌ (banka tanınamaz)
 """)
 
-st.markdown("---")
-
-# =============================================================================
-# DOSYA KLASÖR YAPISI
-# =============================================================================
-st.header("📁 Dosya ve Klasör Yapısı")
-
-st.code("""
-data/
-├── raw/                          # Ham banka dosyaları
-│   ├── AKBANK/
-│   │   ├── 2026-01/
-│   │   │   └── akbank_ocak.xlsx
-│   │   └── 2026-02/
-│   │       └── akbank_subat.xlsx
-│   ├── GARANTI/
-│   ├── HALKBANK/
-│   ├── ISBANK/
-│   ├── QNB/
-│   ├── VAKIFBANK/
-│   ├── YKB/
-│   └── ZIRAAT/
-│
-├── metadata/
-│   └── files_metadata.json       # Dosya takip bilgileri
-│
-└── output/                       # Export dosyaları
-
-config/
-├── banks.yaml                    # Banka sütun eşleştirmeleri
-├── commission_rates.yaml         # Komisyon oranları
-├── rate_history.json             # Oran değişiklik geçmişi
-└── settings.yaml                 # Genel ayarlar
-""", language="text")
 
 st.markdown("---")
 
