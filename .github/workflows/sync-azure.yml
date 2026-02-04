@@ -1,0 +1,29 @@
+# Kariyer.net Finans - GitHub to Azure DevOps Sync
+# Bu workflow her push'ta Azure DevOps'a sync yapar
+
+name: 🔄 Sync to Azure DevOps
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: 'Sync to Azure DevOps'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🔄 Push to Azure DevOps
+        run: |
+          git config user.email "farajijobehdarvahid@gmail.com"
+          git config user.name "Vahid Faraji"
+          git remote add azure https://${{ secrets.AZURE_DEVOPS_PAT }}@dev.azure.com/KariyerNetTech/Applied%20AI%20Projects/_git/finance-ai-cashflow
+          git push azure HEAD:refs/heads/main --force
+        env:
+          AZURE_DEVOPS_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
