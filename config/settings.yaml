@@ -25,9 +25,9 @@ processing:
     - "Peşin Satış"
   
   # Exclude these transaction types
+  # NOTE: İADE/Refund rows are NOT excluded — their negative amounts
+  # naturally subtract from totals (net, gross, commission).
   exclude_transaction_types:
-    - "İADE"
-    - "İade"
     - "İPTAL"
     - "İptal"
     - "BAŞARISIZ"
