@@ -610,16 +610,19 @@ class BankFileReader:
     
     def _transform_akbank(self, df: pd.DataFrame, bank_config: dict) -> pd.DataFrame:
         """Akbank dönüşümleri."""
-        # EO_KES_TUTAR gerçek komisyon tutarı, KOMISYON_TUTAR genelde 0
+        # EO_KES_TUTAR = gerçek komisyon tutarı (commission_amount_alt)
+        # KOMISYON_TUTAR genelde 0, kullanma
+        # PROVIZYON_TUTAR = brüt tutar (gross_amount)
+        # commission_rate = EO_KES_TUTAR / PROVIZYON_TUTAR
         if "commission_amount_alt" in df.columns:
             alt_vals = pd.to_numeric(df["commission_amount_alt"], errors="coerce").fillna(0)
-            if alt_vals.abs().sum() > 0:
-                # commission_amount_alt has actual values, use it
-                if "commission_amount" not in df.columns or (pd.to_numeric(df["commission_amount"], errors="coerce").fillna(0).abs().sum() == 0):
-                    df["commission_amount"] = alt_vals
+            # Always use EO_KES_TUTAR as the real commission amount
+            df["commission_amount"] = alt_vals
         
-        # Komisyon oranı hesapla (tutar ve komisyondan)
+        # Komisyon oranı: EO_KES_TUTAR / PROVIZYON_TUTAR
         if "gross_amount" in df.columns and "commission_amount" in df.columns:
+            df["gross_amount"] = pd.to_numeric(df["gross_amount"], errors="coerce").fillna(0)
+            df["commission_amount"] = pd.to_numeric(df["commission_amount"], errors="coerce").fillna(0)
             df["commission_rate"] = df.apply(
                 lambda r: abs(r["commission_amount"] / r["gross_amount"]) if r["gross_amount"] != 0 else 0, 
                 axis=1

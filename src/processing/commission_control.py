@@ -15,7 +15,7 @@ import yaml
 
 # Cache for loaded commission rates
 _COMMISSION_RATES_CACHE = None
-_ANOMALY_THRESHOLD = 0.005  # Default 0.5%
+_ANOMALY_THRESHOLD = 0.005  # Default 0.5% (tolerance for rate comparison)
 
 
 def _load_commission_rates_from_yaml() -> dict:
@@ -252,7 +252,7 @@ def add_commission_control(df: pd.DataFrame, bank_name: str = "Vakıfbank") -> p
             # Oran farkı kontrolü
             rate_diff = abs(rate_actual - rate_from_table)
             df.at[idx, "rate_diff"] = rate_diff
-            df.at[idx, "rate_match"] = rate_diff < 0.001  # %0.1 tolerans
+            df.at[idx, "rate_match"] = rate_diff < 0.005  # %0.5 tolerans
             
             # Tutar farkı
             commission_diff = commission_actual - commission_from_table
