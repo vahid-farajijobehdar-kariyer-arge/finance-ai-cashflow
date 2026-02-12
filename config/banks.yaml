@@ -26,12 +26,12 @@ banks:
     settlement_days: 1
     # Ham sütun eşleştirmesi (gerçek veriden)
     raw_columns:
-      Tarih: transaction_date
+      İşlem Tarihi: transaction_date
       Hesaba Geçiş Tarihi: settlement_date
       Tutar: gross_amount
-      Komisyon: commission_amount
-      Net Tutar: net_amount
-      Oran: commission_rate
+      Kesilen Komisyon Tutarı: commission_amount
+      "Hesaba Geçen/Geçecek Net Tutar": net_amount
+      "Komisyon Oranı (%)": commission_rate
       Taksit Sayısı: installment_count
       İşlem Tipi: transaction_type
       Kart Tipi: card_type
@@ -39,6 +39,7 @@ banks:
       Üye İşyeri No: merchant_id
       Terminal No: terminal_id
       Provizyon Kodu: approval_code
+      Para Cinsi: currency
 
   akbank:
     name: "Akbank"
@@ -73,22 +74,25 @@ banks:
     file_pattern: "*[Gg]aranti*.xlsx"
     settlement_days: 1
     raw_columns:
-      Tarih: transaction_date
+      ISLEMTARIHI: transaction_date
       VALOR: settlement_date
-      Tutar: gross_amount
-      Komisyon: commission_amount
-      Net Tutar: net_amount
-      Taksit Sayısı: installment_count
-      İşlem Tipi: transaction_type
+      BURUT: gross_amount
+      KOMISYON: commission_amount
+      NET: net_amount
+      TSAYISI: installment_count
+      ISLEMTIPI: transaction_type
       URUN: card_type
       GUNSONU: end_of_day_date
       UYENO: merchant_id
+      FIRMAKODU: firm_code
+      DOVIZKODU: currency_code
       TERMINAL: terminal_id
       BATCHNO: batch_number
       SUBE: branch_code
       HESAP: account_number
       ODULKESINTISI: reward_deduction
       SERVISKESINTISI: service_deduction
+      BORCALACAK: credit_debit
 
   halkbank:
     name: "Halkbank"
@@ -163,14 +167,20 @@ banks:
     file_pattern: "*[Yy][Kk][Bb]*.xlsx"
     settlement_days: 1
     raw_columns:
-      İşlem Tarihi: transaction_date
-      Valör Tarihi: settlement_date
+      "Org. İşlem Tarihi": transaction_date
+      Ödeme Tarihi: settlement_date
       İşlem Tutarı: gross_amount
       Brüt Tutar: gross_amount_alt
-      NET KESİNTİ: commission_amount
       Net Tutar: net_amount
-      ORAN: commission_rate
-      Taksit Sayısı: installment_count
+      "Taksit Sayısı / Taksit Numarası": installment_count
+      Peşin İşlem Komisyonu: commission_pesin
+      Taksitli İşlem Komisyonu: commission_taksitli
+      İşlem Tipi: transaction_type
+      Kart Tipi: card_type
+      Kart Markası: card_brand
+      Kart No: card_number
+      Terminal No: terminal_id
+      Onay Kodu: approval_code
 
   isbankasi:
     name: "İşbank"

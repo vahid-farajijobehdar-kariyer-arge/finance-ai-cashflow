@@ -221,13 +221,19 @@ class BankFileReader:
                 df.at[idx, "rate_source"] = "file"
             else:
                 # Oran yok - hesapla
-                if gross > 0:
-                    rate = commission_actual / gross
+                if gross != 0:
+                    rate = abs(commission_actual / gross)
                     df.at[idx, "commission_rate"] = round(rate, 6)
                     df.at[idx, "rate_source"] = "calculated"
                 else:
                     df.at[idx, "commission_rate"] = 0.0
                     df.at[idx, "rate_source"] = "zero_gross"
+        
+        # Ensure required columns exist before verification
+        if "gross_amount" not in df.columns:
+            df["gross_amount"] = 0.0
+        if "commission_amount" not in df.columns:
+            df["commission_amount"] = 0.0
         
         # Tutar doğrulaması: gross × rate = commission_amount?
         df["commission_calculated"] = df["gross_amount"] * df["commission_rate"]
@@ -276,6 +282,7 @@ class BankFileReader:
             "ykb": "ykb",
             "yapı kredi": "ykb",
             "yapıkredi": "ykb",
+            "yapikredi": "ykb",
             "qnb": "qnb",
             "finans": "qnb",
             "işbank": "isbankasi",
@@ -576,6 +583,8 @@ class BankFileReader:
             df = self._transform_halkbank(df, bank_config)
         elif bank_key == "qnb":
             df = self._transform_qnb(df, bank_config)
+        elif bank_key == "ykb":
+            df = self._transform_ykb(df, bank_config)
         
         return df
     
@@ -601,15 +610,18 @@ class BankFileReader:
     
     def _transform_akbank(self, df: pd.DataFrame, bank_config: dict) -> pd.DataFrame:
         """Akbank dönüşümleri."""
-        # EO_KES_TUTAR komisyon tutarı
-        if "commission_amount" not in df.columns or df["commission_amount"].isna().all():
-            if "commission_amount_alt" in df.columns:
-                df["commission_amount"] = df["commission_amount_alt"]
+        # EO_KES_TUTAR gerçek komisyon tutarı, KOMISYON_TUTAR genelde 0
+        if "commission_amount_alt" in df.columns:
+            alt_vals = pd.to_numeric(df["commission_amount_alt"], errors="coerce").fillna(0)
+            if alt_vals.abs().sum() > 0:
+                # commission_amount_alt has actual values, use it
+                if "commission_amount" not in df.columns or (pd.to_numeric(df["commission_amount"], errors="coerce").fillna(0).abs().sum() == 0):
+                    df["commission_amount"] = alt_vals
         
         # Komisyon oranı hesapla (tutar ve komisyondan)
         if "gross_amount" in df.columns and "commission_amount" in df.columns:
             df["commission_rate"] = df.apply(
-                lambda r: r["commission_amount"] / r["gross_amount"] if r["gross_amount"] > 0 else 0, 
+                lambda r: abs(r["commission_amount"] / r["gross_amount"]) if r["gross_amount"] != 0 else 0, 
                 axis=1
             )
         
@@ -629,7 +641,7 @@ class BankFileReader:
         # Komisyon oranı hesapla
         if "gross_amount" in df.columns and "commission_amount" in df.columns:
             df["commission_rate"] = df.apply(
-                lambda r: r["commission_amount"] / r["gross_amount"] if r["gross_amount"] > 0 else 0, 
+                lambda r: abs(r["commission_amount"] / r["gross_amount"]) if r["gross_amount"] != 0 else 0, 
                 axis=1
             )
         
@@ -734,6 +746,43 @@ class BankFileReader:
         
         return df
 
+    def _transform_ykb(self, df: pd.DataFrame, bank_config: dict) -> pd.DataFrame:
+        """Yapı Kredi dönüşümleri."""
+        # Komisyon tutarı: Peşin ve Taksitli komisyon sütunlarını birleştir
+        pesin = pd.to_numeric(df.get("commission_pesin", pd.Series(0, index=df.index)), errors="coerce").fillna(0)
+        taksitli = pd.to_numeric(df.get("commission_taksitli", pd.Series(0, index=df.index)), errors="coerce").fillna(0)
+        df["commission_amount"] = (pesin + taksitli).abs()
+        
+        # gross_amount - İşlem Tutarı veya Brüt Tutar kullan
+        if "gross_amount" in df.columns:
+            df["gross_amount"] = pd.to_numeric(df["gross_amount"], errors="coerce").fillna(0)
+        elif "gross_amount_alt" in df.columns:
+            df["gross_amount"] = pd.to_numeric(df["gross_amount_alt"], errors="coerce").fillna(0)
+        
+        # Komisyon oranı hesapla
+        if "gross_amount" in df.columns and "commission_amount" in df.columns:
+            df["commission_rate"] = df.apply(
+                lambda r: abs(r["commission_amount"] / r["gross_amount"]) if r["gross_amount"] != 0 else 0,
+                axis=1
+            )
+        
+        # Taksit sayısı (format: "3/3" veya sayı)
+        if "installment_count" in df.columns:
+            df["installment_count"] = df["installment_count"].apply(
+                lambda x: int(str(x).split("/")[0]) if pd.notna(x) and "/" in str(x) else (
+                    int(float(x)) if pd.notna(x) and str(x).replace(".", "").isdigit() else 1
+                )
+            )
+        else:
+            df["installment_count"] = 1
+        
+        # Tarih dönüşümü
+        for col in ["transaction_date", "settlement_date"]:
+            if col in df.columns:
+                df[col] = pd.to_datetime(df[col], errors="coerce")
+        
+        return df
+
     def get_successful_transaction_types(self, bank_key: str) -> list:
         """Get list of transaction type values that indicate successful sales."""
         if bank_key not in self.banks:
@@ -793,7 +842,7 @@ class BankFileReader:
         # Read and merge all files
         dfs = []
         for file_path in files:
-            if file_path.name.startswith("."):  # Skip hidden files
+            if file_path.name.startswith(".") or file_path.name.startswith("~$"):  # Skip hidden/temp files
                 continue
             try:
                 df = self.read_file(file_path)
