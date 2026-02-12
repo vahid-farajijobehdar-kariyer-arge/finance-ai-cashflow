@@ -249,16 +249,17 @@ def add_commission_control(df: pd.DataFrame, bank_name: str = "Vakıfbank") -> p
             commission_from_table = gross * rate_from_table
             df.at[idx, "commission_expected"] = round(commission_from_table, 2)
             
-            # Oran farkı kontrolü
+            # Oran farkı kontrolü (tolerans: %0.5)
             rate_diff = abs(rate_actual - rate_from_table)
             df.at[idx, "rate_diff"] = rate_diff
             df.at[idx, "rate_match"] = rate_diff < 0.005  # %0.5 tolerans
             
-            # Tutar farkı
-            commission_diff = commission_actual - commission_from_table
-            df.at[idx, "commission_diff"] = round(commission_diff, 2)
-            
-            if rate_diff >= 0.001:
+            # Tutar farkı — tolerans içindeyse fark = 0
+            if rate_diff < 0.005:
+                df.at[idx, "commission_diff"] = 0.0
+            else:
+                commission_diff = commission_actual - commission_from_table
+                df.at[idx, "commission_diff"] = round(commission_diff, 2)
                 flags.append(f"ORAN_FARK:{rate_diff*100:.2f}%")
         else:
             df.at[idx, "rate_expected"] = 0.0
