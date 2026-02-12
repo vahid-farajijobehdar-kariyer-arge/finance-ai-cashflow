@@ -22,5 +22,5 @@ python-dotenv>=1.0.0
 # HTTP Requests (for rate imports from URL)
 requests>=2.31.0
 
-# Azure Storage (backup)
-azure-storage-blob>=12.19.0
+# Azure Storage (backup) - optional, not needed for Streamlit Cloud
+# azure-storage-blob>=12.19.0
