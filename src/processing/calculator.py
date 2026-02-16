@@ -107,22 +107,20 @@ def filter_successful_transactions(
             ["İPTAL", "IPTAL", "BAŞARISIZ", "İADE", "IADE", "IAD", "REFUND"]
         )
     
-    # If transaction_type column doesn't exist, return as-is
-    if transaction_type_column not in df.columns:
-        return df
-    
-    # Exclude unwanted types using substring matching (case-insensitive)
-    exclude_pattern = "|".join(exclude_types)
-    mask = ~df[transaction_type_column].astype(str).str.upper().str.contains(
-        exclude_pattern, case=False, na=False, regex=True
-    )
-    df_filtered = df[mask].copy()
+    # If transaction_type column doesn't exist, skip type-based filtering
+    if transaction_type_column in df.columns:
+        # Exclude unwanted types using substring matching (case-insensitive)
+        exclude_pattern = "|".join(exclude_types)
+        mask = ~df[transaction_type_column].astype(str).str.upper().str.contains(
+            exclude_pattern, case=False, na=False, regex=True
+        )
+        df = df[mask].copy()
     
     # Negatif brüt tutarlı satırları da çıkar (iade/chargeback)
-    if "gross_amount" in df_filtered.columns:
-        df_filtered = df_filtered[pd.to_numeric(df_filtered["gross_amount"], errors="coerce").fillna(0) >= 0]
+    if "gross_amount" in df.columns:
+        df = df[pd.to_numeric(df["gross_amount"], errors="coerce").fillna(0) >= 0]
     
-    return df_filtered
+    return df
 
 
 def ensure_numeric_columns(df: pd.DataFrame) -> pd.DataFrame:
