@@ -118,6 +118,10 @@ def filter_successful_transactions(
     )
     df_filtered = df[mask].copy()
     
+    # Negatif brüt tutarlı satırları da çıkar (iade/chargeback)
+    if "gross_amount" in df_filtered.columns:
+        df_filtered = df_filtered[pd.to_numeric(df_filtered["gross_amount"], errors="coerce").fillna(0) >= 0]
+    
     return df_filtered
 
 
