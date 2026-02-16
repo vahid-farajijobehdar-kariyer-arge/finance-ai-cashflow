@@ -111,10 +111,14 @@ def filter_successful_transactions(
     if transaction_type_column in df.columns:
         # Exclude unwanted types using substring matching (case-insensitive)
         exclude_pattern = "|".join(exclude_types)
-        mask = ~df[transaction_type_column].astype(str).str.upper().str.contains(
+        mask = ~df[transaction_type_column].astype(str).str.strip().str.upper().str.contains(
             exclude_pattern, case=False, na=False, regex=True
         )
         df = df[mask].copy()
+    
+    # credit_debit sütunu varsa, Alacak (A) satırları çıkar (iade/iptal)
+    if "credit_debit" in df.columns:
+        df = df[~df["credit_debit"].astype(str).str.strip().str.upper().isin(["A", "ALACAK"])].copy()
     
     # Negatif brüt tutarlı satırları da çıkar (iade/chargeback)
     if "gross_amount" in df.columns:

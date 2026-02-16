@@ -123,7 +123,16 @@ def parse_turkish_number(value) -> float:
     elif comma_count > 1:
         # Multiple commas as thousands: 1,234,567 (English)
         s = s.replace(",", "")
-    # If only dots, assume English format
+    elif dot_count >= 1:
+        # Only dots — check if they are thousands separators
+        # "4.000" or "1.234.567" → Turkish thousands (3 digits after each dot)
+        # "4.50" → English decimal
+        parts = s.split(".")
+        # All parts after the first must be exactly 3 digits for thousands
+        if all(len(p) == 3 and p.isdigit() for p in parts[1:]):
+            # Turkish thousands separators: 4.000 → 4000, 1.234.567 → 1234567
+            s = s.replace(".", "")
+        # else: English decimal format — leave as-is
     
     # Remove trailing dot
     s = s.rstrip(".")
