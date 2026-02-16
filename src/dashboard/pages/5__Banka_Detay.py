@@ -20,6 +20,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from ingestion.reader import BankFileReader
 from processing.commission_control import add_commission_control
+from processing.calculator import filter_successful_transactions
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from auth import check_password
@@ -61,12 +62,7 @@ def load_data():
     df = df.reset_index(drop=True)
     df = df.loc[:, ~df.columns.duplicated()]
     
-    # İade işlemlerini filtrele
-    if "transaction_type" in df.columns:
-        refund_patterns = ["İADE", "IAD", "IADE", "REFUND"]
-        mask = ~df["transaction_type"].astype(str).str.upper().str.contains("|".join(refund_patterns), na=False)
-        df = df[mask]
-    
+    df = filter_successful_transactions(df)
     df = add_commission_control(df)
     
     return df

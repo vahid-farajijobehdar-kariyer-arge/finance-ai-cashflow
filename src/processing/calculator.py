@@ -100,13 +100,11 @@ def filter_successful_transactions(
         )
     
     # Get types to exclude (used as substring patterns)
-    # NOTE: İADE/REFUND rows are NOT excluded — they have negative amounts
-    # that naturally subtract from totals (net, gross, commission).
-    # Only truly invalid transactions (cancelled, failed) are excluded.
+    # İADE/refund rows are excluded — they should not appear in commission analysis.
     if exclude_types is None:
         exclude_types = processing_settings.get(
             "exclude_transaction_types",
-            ["İPTAL", "IPTAL", "BAŞARISIZ"]
+            ["İPTAL", "IPTAL", "BAŞARISIZ", "İADE", "IADE", "IAD", "REFUND"]
         )
     
     # If transaction_type column doesn't exist, return as-is
@@ -114,7 +112,6 @@ def filter_successful_transactions(
         return df
     
     # Exclude unwanted types using substring matching (case-insensitive)
-    # İADE/refund rows are kept — their negative amounts subtract from totals
     exclude_pattern = "|".join(exclude_types)
     mask = ~df[transaction_type_column].astype(str).str.upper().str.contains(
         exclude_pattern, case=False, na=False, regex=True
