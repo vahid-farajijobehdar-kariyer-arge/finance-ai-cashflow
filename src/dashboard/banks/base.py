@@ -335,9 +335,11 @@ class BankDetailPage:
         """Özet metrikler."""
         st.subheader("📊 Özet Metrikler")
         
-        total_gross = df["gross_amount"].sum() if "gross_amount" in df.columns else 0
-        total_commission = df["commission_amount"].sum() if "commission_amount" in df.columns else 0
-        total_net = df["net_amount"].sum() if "net_amount" in df.columns else total_gross - total_commission
+        # Negatif brüt tutarlı satırları toplamdan çıkar
+        pos = df[df["gross_amount"] >= 0] if "gross_amount" in df.columns else df
+        total_gross = pos["gross_amount"].sum() if "gross_amount" in pos.columns else 0
+        total_commission = pos["commission_amount"].sum() if "commission_amount" in pos.columns else 0
+        total_net = pos["net_amount"].sum() if "net_amount" in pos.columns else total_gross - total_commission
         avg_rate = (total_commission / total_gross * 100) if total_gross > 0 else 0
         
         c1, c2, c3, c4, c5 = st.columns(5)

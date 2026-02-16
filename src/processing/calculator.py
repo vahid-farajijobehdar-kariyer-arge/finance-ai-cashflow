@@ -116,14 +116,6 @@ def filter_successful_transactions(
         )
         df = df[mask].copy()
     
-    # credit_debit sütunu varsa, Alacak (A) satırları çıkar (iade/iptal)
-    if "credit_debit" in df.columns:
-        df = df[~df["credit_debit"].astype(str).str.strip().str.upper().isin(["A", "ALACAK"])].copy()
-    
-    # Negatif brüt tutarlı satırları da çıkar (iade/chargeback)
-    if "gross_amount" in df.columns:
-        df = df[pd.to_numeric(df["gross_amount"], errors="coerce").fillna(0) >= 0]
-    
     return df
 
 
@@ -353,11 +345,15 @@ def calculate_ground_totals(df: pd.DataFrame) -> Dict:
     """
     df = ensure_numeric_columns(df)
     
+    # Negatif brüt tutarlı satırları toplamlardan çıkar (iade/chargeback)
+    pos_mask = (pd.to_numeric(df["gross_amount"], errors="coerce").fillna(0) >= 0) if "gross_amount" in df.columns else pd.Series(True, index=df.index)
+    df_pos = df[pos_mask]
+    
     totals = {
-        "total_transactions": len(df),
-        "total_gross": df["gross_amount"].sum() if "gross_amount" in df.columns else 0,
-        "total_commission": df["commission_amount"].sum() if "commission_amount" in df.columns else 0,
-        "total_net": df["net_amount"].sum() if "net_amount" in df.columns else 0,
+        "total_transactions": len(df_pos),
+        "total_gross": df_pos["gross_amount"].sum() if "gross_amount" in df_pos.columns else 0,
+        "total_commission": df_pos["commission_amount"].sum() if "commission_amount" in df_pos.columns else 0,
+        "total_net": df_pos["net_amount"].sum() if "net_amount" in df_pos.columns else 0,
     }
     
     # Add control totals if available

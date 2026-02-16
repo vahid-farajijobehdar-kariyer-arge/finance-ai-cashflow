@@ -87,16 +87,18 @@ def display_no_data_message():
 
 def display_bank_metrics(bank_df: pd.DataFrame, bank_name: str):
     """Banka metriklerini göster."""
+    # Negatif brüt tutarlı satırları toplamdan çıkar
+    pos = bank_df[bank_df["gross_amount"] >= 0] if "gross_amount" in bank_df.columns else bank_df
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("💰 Toplam Tutar", f"₺{bank_df['gross_amount'].sum():,.2f}")
+        st.metric("💰 Toplam Tutar", f"₺{pos['gross_amount'].sum():,.2f}")
     with col2:
-        st.metric("💳 Komisyon", f"₺{bank_df['commission_amount'].sum():,.2f}")
+        st.metric("💳 Komisyon", f"₺{pos['commission_amount'].sum():,.2f}")
     with col3:
-        st.metric("📈 Net Tutar", f"₺{bank_df['net_amount'].sum():,.2f}")
+        st.metric("📈 Net Tutar", f"₺{pos['net_amount'].sum():,.2f}")
     with col4:
-        st.metric("📊 İşlem Sayısı", f"{len(bank_df):,}")
+        st.metric("📊 İşlem Sayısı", f"{len(pos):,}")
 
 
 def display_installment_breakdown(bank_df: pd.DataFrame):
