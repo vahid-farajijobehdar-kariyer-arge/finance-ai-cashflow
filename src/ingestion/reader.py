@@ -664,9 +664,9 @@ class BankFileReader:
                 lambda r: abs(r["commission_amount"] / r["gross_amount"]) if r["gross_amount"] != 0 else 0, 
                 axis=1
             )
-            # Garanti: NET sütunu ödül/servis kesintileri içerir,
-            # biz sadece BURUT - KOMISYON istiyoruz
-            df["net_amount"] = df["gross_amount"] - df["commission_amount"]
+            # Garanti: BURUT - KOMISYON - ODULKESINTISI
+            reward = pd.to_numeric(df.get("reward_deduction", 0), errors="coerce").fillna(0)
+            df["net_amount"] = df["gross_amount"] - df["commission_amount"] - reward
         
         # Taksit sayısı (0 = peşin)
         if "installment_count" in df.columns:
