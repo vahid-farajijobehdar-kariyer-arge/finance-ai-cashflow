@@ -658,10 +658,15 @@ class BankFileReader:
         """Garanti BBVA dönüşümleri."""
         # Komisyon oranı hesapla
         if "gross_amount" in df.columns and "commission_amount" in df.columns:
+            df["gross_amount"] = pd.to_numeric(df["gross_amount"], errors="coerce").fillna(0)
+            df["commission_amount"] = pd.to_numeric(df["commission_amount"], errors="coerce").fillna(0)
             df["commission_rate"] = df.apply(
                 lambda r: abs(r["commission_amount"] / r["gross_amount"]) if r["gross_amount"] != 0 else 0, 
                 axis=1
             )
+            # Garanti: NET sütunu ödül/servis kesintileri içerir,
+            # biz sadece BURUT - KOMISYON istiyoruz
+            df["net_amount"] = df["gross_amount"] - df["commission_amount"]
         
         # Taksit sayısı (0 = peşin)
         if "installment_count" in df.columns:
