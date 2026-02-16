@@ -656,16 +656,19 @@ class BankFileReader:
     
     def _transform_garanti(self, df: pd.DataFrame, bank_config: dict) -> pd.DataFrame:
         """Garanti BBVA dönüşümleri."""
+        # Tutarları Turkish number formatından parse et
+        for col in ["gross_amount", "commission_amount", "net_amount", "reward_deduction", "service_deduction"]:
+            if col in df.columns:
+                df[col] = df[col].apply(parse_turkish_number)
+
         # Komisyon oranı hesapla
         if "gross_amount" in df.columns and "commission_amount" in df.columns:
-            df["gross_amount"] = pd.to_numeric(df["gross_amount"], errors="coerce").fillna(0)
-            df["commission_amount"] = pd.to_numeric(df["commission_amount"], errors="coerce").fillna(0)
             df["commission_rate"] = df.apply(
                 lambda r: abs(r["commission_amount"] / r["gross_amount"]) if r["gross_amount"] != 0 else 0, 
                 axis=1
             )
             # Garanti: BURUT - KOMISYON - ODULKESINTISI
-            reward = pd.to_numeric(df.get("reward_deduction", 0), errors="coerce").fillna(0)
+            reward = df["reward_deduction"] if "reward_deduction" in df.columns else 0
             df["net_amount"] = df["gross_amount"] - df["commission_amount"] - reward
         
         # Taksit sayısı (0 = peşin)
