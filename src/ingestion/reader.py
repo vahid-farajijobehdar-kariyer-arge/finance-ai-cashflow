@@ -414,6 +414,14 @@ class BankFileReader:
         # Komisyon oranı yoksa hesapla ve doğrula
         df = self.calculate_commission_rate(df)
         
+        # Net tutarı her zaman yeniden hesapla: gross - commission
+        # Banka dosyasındaki net_amount güvenilir olmayabilir
+        # (ödül kesintisi, servis kesintisi vb. dahil olabilir)
+        if "gross_amount" in df.columns and "commission_amount" in df.columns:
+            df["gross_amount"] = pd.to_numeric(df["gross_amount"], errors="coerce").fillna(0)
+            df["commission_amount"] = pd.to_numeric(df["commission_amount"], errors="coerce").fillna(0)
+            df["net_amount"] = df["gross_amount"] - df["commission_amount"]
+        
         df.attrs["bank_key"] = bank_key
         return df
     
