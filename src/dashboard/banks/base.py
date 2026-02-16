@@ -15,6 +15,7 @@ from pathlib import Path
 from io import BytesIO
 from datetime import datetime
 import sys
+import yaml
 
 # Proje yolunu ekle
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.resolve()
@@ -28,6 +29,40 @@ from src.processing.calculator import filter_successful_transactions
 
 # Sabitler
 RAW_PATH = PROJECT_ROOT / "data" / "raw"
+CONFIG_PATH = PROJECT_ROOT / "config" / "commission_rates.yaml"
+
+# YAML bank key → base.py bank key eşleştirmesi
+YAML_KEY_MAP = {
+    "akbank": "akbank",
+    "garanti": "garanti",
+    "halkbank": "halkbank",
+    "isbank": "isbank",
+    "qnb": "qnb",
+    "vakifbank": "vakifbank",
+    "yapikredi": "ykb",
+    "ziraat": "ziraat",
+}
+# Tersini de oluştur: base key → yaml key
+BASE_TO_YAML_KEY = {v: k for k, v in YAML_KEY_MAP.items()}
+
+
+def load_yaml_rates(bank_key: str) -> dict:
+    """YAML'dan belirli banka için sözleşme oranlarını yükle.
+    
+    Returns:
+        dict: {installment_count: rate} — örn. {1: 0.0360, 2: 0.0586, ...}
+    """
+    yaml_key = BASE_TO_YAML_KEY.get(bank_key, bank_key)
+    
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+    except Exception:
+        return {}
+    
+    bank_data = config.get("banks", {}).get(yaml_key, {})
+    return bank_data.get("rates", {})
+
 
 # Banka tanımları
 BANK_DEFINITIONS = {
@@ -278,120 +313,225 @@ class BankDetailPage:
                 st.info("Taksitli işlem yok.")
     
     def _render_commission_diff_analysis(self, df: pd.DataFrame):
-        """Komisyon fark analizi."""
+        """Sözleşme vs Uygulanan oran karşılaştırması."""
         st.markdown("---")
-        st.subheader("⚠️ Komisyon Fark Analizi")
+        st.subheader("📋 Sözleşme vs Uygulanan Oranlar")
         
-        # Kontrol sütunları var mı?
-        has_control = "rate_match" in df.columns and "commission_diff" in df.columns
+        # YAML'dan sözleşme oranlarını yükle
+        yaml_rates = load_yaml_rates(self.bank_key)
         
-        if not has_control:
-            st.info("Komisyon kontrol verisi henüz hesaplanmamış.")
+        if not yaml_rates:
+            st.warning(f"{self.name} için sözleşme oranları tanımlanmamış (commission_rates.yaml).")
             return
         
-        # Özet metrikler
-        total_diff = df["commission_diff"].sum()
-        diff_count = (df["rate_match"] == False).sum()
-        match_count = df["rate_match"].sum()
-        match_rate = (match_count / len(df) * 100) if len(df) > 0 else 0
-        max_diff = df["commission_diff"].abs().max()
-        
-        c1, c2, c3, c4 = st.columns(4)
-        
-        # Renk kodları
-        diff_delta = "normal" if abs(total_diff) < 100 else ("inverse" if total_diff > 0 else "normal")
-        
-        c1.metric(
-            "Fark Olan İşlem", 
-            f"{diff_count:,}",
-            delta=f"{len(df) - diff_count:,} eşleşen",
-            delta_color="off"
-        )
-        c2.metric(
-            "Toplam Fark", 
-            format_currency(total_diff),
-            delta="Fazla ödeme" if total_diff > 0 else ("Az ödeme" if total_diff < 0 else "Tam eşleşme"),
-            delta_color=diff_delta
-        )
-        c3.metric("Maks Fark", format_currency(max_diff))
-        c4.metric(
-            "Uyum Oranı", 
-            f"%{match_rate:.1f}",
-            delta="✓" if match_rate > 95 else "⚠️",
-            delta_color="off"
-        )
-        
-        # Taksit bazlı fark tablosu
-        st.markdown("#### 📊 Taksit Bazında Fark")
-        
         inst_col = "installment_count"
-        if inst_col in df.columns:
-            taksit_diff = df.groupby(inst_col).agg({
-                "gross_amount": "sum",
-                "commission_amount": "sum",
-                "commission_expected": "sum" if "commission_expected" in df.columns else "commission_amount",
-                "commission_diff": "sum"
-            }).reset_index()
-            
-            taksit_diff.columns = ["Taksit", "Brüt Tutar", "Gerçek Komisyon", "Beklenen Komisyon", "Fark"]
-            
-            # Fark yüzdesi
-            taksit_diff["Fark %"] = (taksit_diff["Fark"] / taksit_diff["Beklenen Komisyon"].replace(0, 1) * 100).round(2)
-            
-            # Durum
-            taksit_diff["Durum"] = taksit_diff["Fark"].apply(
-                lambda x: "✅" if abs(x) < 1 else ("🔴 Fazla" if x > 0 else "🟢 Az")
-            )
-            
-            st.dataframe(
-                taksit_diff.style.format({
-                    "Brüt Tutar": "₺{:,.2f}",
-                    "Gerçek Komisyon": "₺{:,.2f}",
-                    "Beklenen Komisyon": "₺{:,.2f}",
-                    "Fark": "₺{:,.2f}",
-                    "Fark %": "{:.2f}%"
-                }),
-                width="stretch",
-                hide_index=True
-            )
-            
-            # Fark grafiği
-            if diff_count > 0:
-                fig = px.bar(
-                    taksit_diff[taksit_diff["Fark"].abs() > 0],
-                    x="Taksit",
-                    y="Fark",
-                    color="Fark",
-                    color_continuous_scale="RdYlGn_r",
-                    title="Taksit Bazında Komisyon Farkı"
-                )
-                fig.add_hline(y=0, line_dash="dash", line_color="gray")
-                st.plotly_chart(fig, width="stretch")
+        has_data = inst_col in df.columns
+        has_control = "rate_match" in df.columns and "commission_diff" in df.columns
         
-        # Fark olan işlemler detayı
-        if diff_count > 0:
-            with st.expander(f"📋 Fark Olan İşlemler ({diff_count:,} adet)", expanded=False):
-                diff_df = df[df["rate_match"] == False].copy()
-                
-                display_cols = ["transaction_date", "gross_amount", "commission_amount", 
-                              "commission_expected", "commission_diff", "installment_count"]
-                display_cols = [c for c in display_cols if c in diff_df.columns]
-                
-                diff_df["Durum"] = diff_df["commission_diff"].apply(
-                    lambda x: "🔴 Fazla" if x > 0 else "🟢 Az"
-                )
-                display_cols.append("Durum")
-                
-                st.dataframe(
-                    diff_df[display_cols].head(100).style.format({
-                        "gross_amount": "₺{:,.2f}",
-                        "commission_amount": "₺{:,.2f}",
-                        "commission_expected": "₺{:,.2f}",
-                        "commission_diff": "₺{:,.2f}"
-                    }),
-                    width="stretch",
-                    hide_index=True
-                )
+        # ────── ORAN KARŞILAŞTIRMA TABLOSU ──────
+        rows = []
+        all_installments = sorted(set(list(yaml_rates.keys()) + 
+                                      ([int(x) for x in df[inst_col].dropna().unique()] if has_data else [])))
+        
+        for inst in all_installments:
+            inst_int = int(inst)
+            offered_rate = yaml_rates.get(inst_int, None)
+            
+            # Gerçek veriden taksit filtrele
+            if has_data:
+                inst_df = df[df[inst_col] == inst_int]
+            else:
+                inst_df = pd.DataFrame()
+            
+            txn_count = len(inst_df)
+            gross = inst_df["gross_amount"].sum() if txn_count > 0 else 0
+            actual_comm = inst_df["commission_amount"].sum() if txn_count > 0 else 0
+            actual_rate = (actual_comm / gross) if gross > 0 else None
+            expected_comm = gross * offered_rate if (offered_rate and gross > 0) else 0
+            comm_diff = actual_comm - expected_comm if (offered_rate and txn_count > 0) else 0
+            
+            # Oran farkı
+            if offered_rate and actual_rate is not None:
+                rate_diff = actual_rate - offered_rate
+                rate_diff_bps = rate_diff * 10000  # basis points
+                if abs(rate_diff) < 0.005:
+                    status = "✅ Uyumlu"
+                elif rate_diff > 0:
+                    status = "🔴 Fazla"
+                else:
+                    status = "🟢 Az"
+            elif txn_count == 0:
+                rate_diff = None
+                rate_diff_bps = None
+                status = "⚪ Veri Yok"
+            else:
+                rate_diff = None
+                rate_diff_bps = None
+                status = "⚠️ Oran Tanımsız"
+            
+            label = "Peşin" if inst_int == 1 else f"{inst_int} Taksit"
+            
+            rows.append({
+                "Taksit": label,
+                "_sort": inst_int,
+                "Sözleşme Oranı": offered_rate,
+                "Uygulanan Oran": actual_rate,
+                "Oran Farkı (bps)": rate_diff_bps,
+                "İşlem Sayısı": txn_count,
+                "Brüt Tutar (₺)": gross,
+                "Beklenen Komisyon (₺)": expected_comm,
+                "Gerçek Komisyon (₺)": actual_comm,
+                "Komisyon Farkı (₺)": comm_diff,
+                "Durum": status,
+            })
+        
+        compare_df = pd.DataFrame(rows).sort_values("_sort").drop(columns=["_sort"])
+        
+        # ────── ÖZET METRİKLER ──────
+        has_txn = compare_df["İşlem Sayısı"] > 0
+        total_gross = compare_df.loc[has_txn, "Brüt Tutar (₺)"].sum()
+        total_actual = compare_df.loc[has_txn, "Gerçek Komisyon (₺)"].sum()
+        total_expected = compare_df.loc[has_txn, "Beklenen Komisyon (₺)"].sum()
+        total_diff = compare_df.loc[has_txn, "Komisyon Farkı (₺)"].sum()
+        match_count = (compare_df["Durum"] == "✅ Uyumlu").sum()
+        mismatch_count = compare_df["Durum"].isin(["🔴 Fazla", "🟢 Az"]).sum()
+        
+        c1, c2, c3, c4, c5 = st.columns(5)
+        c1.metric("Beklenen Komisyon", format_currency(total_expected))
+        c2.metric("Gerçek Komisyon", format_currency(total_actual))
+        c3.metric(
+            "Toplam Fark",
+            format_currency(total_diff),
+            delta="Fazla kesim" if total_diff > 0 else ("Az kesim" if total_diff < 0 else "Tam eşleşme"),
+            delta_color="inverse" if total_diff > 0 else "normal"
+        )
+        c4.metric("Uyumlu Taksit", f"{match_count}/{match_count + mismatch_count}")
+        c5.metric(
+            "Uyum Oranı",
+            f"%{(match_count / max(match_count + mismatch_count, 1) * 100):.0f}",
+            delta="✓" if mismatch_count == 0 else f"{mismatch_count} farklı",
+            delta_color="off"
+        )
+        
+        # ────── KARŞILAŞTIRMA TABLOSU ──────
+        st.markdown("#### 📊 Taksit Bazında Sözleşme vs Uygulanan")
+        
+        format_dict = {
+            "Sözleşme Oranı": "{:.4f}",
+            "Uygulanan Oran": "{:.4f}",
+            "Oran Farkı (bps)": "{:+.1f}",
+            "İşlem Sayısı": "{:,}",
+            "Brüt Tutar (₺)": "₺{:,.2f}",
+            "Beklenen Komisyon (₺)": "₺{:,.2f}",
+            "Gerçek Komisyon (₺)": "₺{:,.2f}",
+            "Komisyon Farkı (₺)": "₺{:+,.2f}",
+        }
+        
+        def highlight_status(val):
+            if "Fazla" in str(val):
+                return "background-color: #f8d7da; color: #721c24"
+            elif "Az" in str(val) and "Veri" not in str(val):
+                return "background-color: #d4edda; color: #155724"
+            elif "Uyumlu" in str(val):
+                return "background-color: #d1ecf1; color: #0c5460"
+            return ""
+        
+        styled = compare_df.style.format(format_dict, na_rep="-").applymap(
+            highlight_status, subset=["Durum"]
+        )
+        st.dataframe(styled, use_container_width=True, hide_index=True)
+        
+        # ────── ORAN KARŞILAŞTIRMA GRAFİĞİ ──────
+        chart_df = compare_df[compare_df["İşlem Sayısı"] > 0].copy()
+        
+        if len(chart_df) > 0:
+            fig = go.Figure()
+            
+            fig.add_trace(go.Bar(
+                x=chart_df["Taksit"],
+                y=chart_df["Sözleşme Oranı"].apply(lambda x: x * 100 if pd.notna(x) else 0),
+                name="Sözleşme Oranı (%)",
+                marker_color="#2196F3",
+                text=chart_df["Sözleşme Oranı"].apply(lambda x: f"%{x*100:.2f}" if pd.notna(x) else "-"),
+                textposition="outside",
+            ))
+            
+            fig.add_trace(go.Bar(
+                x=chart_df["Taksit"],
+                y=chart_df["Uygulanan Oran"].apply(lambda x: x * 100 if pd.notna(x) else 0),
+                name="Uygulanan Oran (%)",
+                marker_color=self.color,
+                text=chart_df["Uygulanan Oran"].apply(lambda x: f"%{x*100:.2f}" if pd.notna(x) else "-"),
+                textposition="outside",
+            ))
+            
+            fig.update_layout(
+                title=f"{self.name} — Sözleşme vs Uygulanan Komisyon Oranı",
+                barmode="group",
+                yaxis_title="Oran (%)",
+                xaxis_title="Taksit",
+                legend=dict(x=0.01, y=0.99),
+                hovermode="x unified"
+            )
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Komisyon tutarı karşılaştırma grafiği
+            fig2 = go.Figure()
+            fig2.add_trace(go.Bar(
+                x=chart_df["Taksit"],
+                y=chart_df["Beklenen Komisyon (₺)"],
+                name="Beklenen Komisyon (₺)",
+                marker_color="#2196F3",
+            ))
+            fig2.add_trace(go.Bar(
+                x=chart_df["Taksit"],
+                y=chart_df["Gerçek Komisyon (₺)"],
+                name="Gerçek Komisyon (₺)",
+                marker_color=self.color,
+            ))
+            fig2.update_layout(
+                title=f"{self.name} — Beklenen vs Gerçek Komisyon Tutarı",
+                barmode="group",
+                yaxis_title="Tutar (₺)",
+                xaxis_title="Taksit",
+                legend=dict(x=0.01, y=0.99),
+                hovermode="x unified"
+            )
+            st.plotly_chart(fig2, use_container_width=True)
+        
+        # ────── FARK OLAN İŞLEMLER ──────
+        if has_control:
+            diff_count = (df["rate_match"] == False).sum()
+            if diff_count > 0:
+                with st.expander(f"📋 Tolerans Dışı İşlemler ({diff_count:,} adet)", expanded=False):
+                    diff_df = df[df["rate_match"] == False].copy()
+                    
+                    display_cols = ["transaction_date", "installment_count", "gross_amount", 
+                                  "commission_rate", "rate_expected", "rate_diff",
+                                  "commission_amount", "commission_expected", "commission_diff"]
+                    display_cols = [c for c in display_cols if c in diff_df.columns]
+                    
+                    col_labels = {
+                        "transaction_date": "Tarih", "installment_count": "Taksit",
+                        "gross_amount": "Brüt Tutar", "commission_rate": "Uygulanan Oran",
+                        "rate_expected": "Sözleşme Oranı", "rate_diff": "Oran Farkı",
+                        "commission_amount": "Gerçek Komisyon", "commission_expected": "Beklenen Komisyon",
+                        "commission_diff": "Fark (₺)"
+                    }
+                    
+                    st.dataframe(
+                        diff_df[display_cols].head(200).rename(columns=col_labels).style.format({
+                            "Brüt Tutar": "₺{:,.2f}",
+                            "Uygulanan Oran": "{:.4f}",
+                            "Sözleşme Oranı": "{:.4f}",
+                            "Oran Farkı": "{:.4f}",
+                            "Gerçek Komisyon": "₺{:,.2f}",
+                            "Beklenen Komisyon": "₺{:,.2f}",
+                            "Fark (₺)": "₺{:+,.2f}"
+                        }, na_rep="-"),
+                        use_container_width=True,
+                        hide_index=True
+                    )
     
     def _render_monthly_trend(self, df: pd.DataFrame):
         """Aylık trend grafiği."""
