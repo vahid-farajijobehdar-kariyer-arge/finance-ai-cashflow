@@ -142,7 +142,7 @@ def goster_taksit_dagilimi(df: pd.DataFrame, grafik_key: str = "taksit_chart"):
     
     df_copy = df.copy()
     df_copy["Taksit"] = df_copy["installment_count"].fillna(1).astype(int)
-    df_copy["Taksit"] = df_copy["Taksit"].apply(lambda x: "Peşin" if x == 1 else f"{x} Taksit")
+    df_copy["Taksit"] = df_copy["Taksit"].apply(lambda x: "Peşin" if x in (0, 1) else f"{x} Taksit")
     
     taksit_df = df_copy.groupby("Taksit").agg({
         "gross_amount": "sum",

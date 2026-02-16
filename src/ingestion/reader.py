@@ -594,9 +594,10 @@ class BankFileReader:
         if "commission_rate" in df.columns:
             df["commission_rate"] = pd.to_numeric(df["commission_rate"], errors="coerce") / 100
         
-        # Taksit sayısı
+        # Taksit sayısı (0 = peşin)
         if "installment_count" in df.columns:
             df["installment_count"] = pd.to_numeric(df["installment_count"], errors="coerce").fillna(1).astype(int)
+            df.loc[df["installment_count"] == 0, "installment_count"] = 1
         else:
             # Taksitli işlem tipinden çıkar
             df["installment_count"] = 1
@@ -628,9 +629,10 @@ class BankFileReader:
                 axis=1
             )
         
-        # Taksit sayısı
+        # Taksit sayısı (0 = peşin)
         if "installment_count" in df.columns:
             df["installment_count"] = pd.to_numeric(df["installment_count"], errors="coerce").fillna(1).astype(int)
+            df.loc[df["installment_count"] == 0, "installment_count"] = 1
         
         # Tarih dönüşümü
         for col in ["transaction_date", "settlement_date"]:
@@ -648,9 +650,10 @@ class BankFileReader:
                 axis=1
             )
         
-        # Taksit sayısı
+        # Taksit sayısı (0 = peşin)
         if "installment_count" in df.columns:
             df["installment_count"] = pd.to_numeric(df["installment_count"], errors="coerce").fillna(1).astype(int)
+            df.loc[df["installment_count"] == 0, "installment_count"] = 1
         
         # Tarih dönüşümü (dd.mm.yyyy formatında)
         if "transaction_date" in df.columns:
@@ -737,9 +740,10 @@ class BankFileReader:
             df["transaction_type_original"] = df["transaction_type"]
             df["transaction_type"] = df["transaction_type"].map(type_map).fillna(df["transaction_type"])
         
-        # Parse installment count (may be string)
+        # Parse installment count (may be string, 0 = peşin)
         if "installment_count" in df.columns:
             df["installment_count"] = pd.to_numeric(df["installment_count"], errors="coerce").fillna(1).astype(int)
+            df.loc[df["installment_count"] == 0, "installment_count"] = 1
         
         # Parse dates
         date_columns = ["transaction_date", "settlement_date"]
@@ -769,13 +773,14 @@ class BankFileReader:
                 axis=1
             )
         
-        # Taksit sayısı (format: "3/3" veya sayı)
+        # Taksit sayısı (format: "3/3" veya sayı, 0 = peşin)
         if "installment_count" in df.columns:
             df["installment_count"] = df["installment_count"].apply(
                 lambda x: int(str(x).split("/")[0]) if pd.notna(x) and "/" in str(x) else (
                     int(float(x)) if pd.notna(x) and str(x).replace(".", "").isdigit() else 1
                 )
             )
+            df.loc[df["installment_count"] == 0, "installment_count"] = 1
         else:
             df["installment_count"] = 1
         

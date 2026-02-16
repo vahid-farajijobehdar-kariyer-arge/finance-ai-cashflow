@@ -98,7 +98,7 @@ def load_data() -> pd.DataFrame | None:
     if "installment_count" in df.columns:
         df["installment_count"] = df["installment_count"].fillna(1)
         df["Taksit Sayısı"] = df["installment_count"].apply(
-            lambda x: "Peşin" if pd.isna(x) or x == 1 else str(int(x))
+            lambda x: "Peşin" if pd.isna(x) or x in (0, 1) else str(int(x))
         )
     
     if "transaction_date" in df.columns:

@@ -359,7 +359,7 @@ class BankDetailPage:
             st.info("Taksit bilgisi bulunamadı.")
             return
         
-        pesin_mask = df[inst_col].isin([1, "1", "Peşin", "peşin", "PESIN", "TEK"])
+        pesin_mask = df[inst_col].isin([0, 1, "0", "1", "Peşin", "peşin", "PESIN", "TEK"])
         pesin_df = df[pesin_mask]
         taksitli_df = df[~pesin_mask]
         
@@ -450,7 +450,7 @@ class BankDetailPage:
                 rate_diff_bps = None
                 status = "⚠️ Oran Tanımsız"
             
-            label = "Peşin" if inst_int == 1 else f"{inst_int} Taksit"
+            label = "Peşin" if inst_int in (0, 1) else f"{inst_int} Taksit"
             
             rows.append({
                 "Taksit": label,

@@ -108,7 +108,7 @@ def get_expected_rate(bank_name: str, installment_count: int) -> Optional[float]
     commission_rates = get_commission_rates()
     
     # Normalize installment count
-    installment_key = str(installment_count) if installment_count > 1 else "Peşin"
+    installment_key = str(installment_count) if installment_count > 1 else "Peşin"  # 0 also treated as Peşin
     
     # Try exact match first
     if bank_name in commission_rates:

@@ -113,7 +113,7 @@ def display_installment_breakdown(bank_df: pd.DataFrame):
     
     bank_df = bank_df.copy()
     bank_df["Taksit"] = bank_df["installment_count"].fillna(1).apply(
-        lambda x: "Peşin" if x == 1 else f"{int(x)} Taksit"
+        lambda x: "Peşin" if x in (0, 1) else f"{int(x)} Taksit"
     )
     
     taksit_summary = bank_df.groupby("Taksit").agg({
