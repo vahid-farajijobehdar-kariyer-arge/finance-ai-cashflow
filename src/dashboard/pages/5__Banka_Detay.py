@@ -10,6 +10,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import sys
 from pathlib import Path
+from datetime import datetime
+from calendar import monthrange
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent.parent.resolve()
@@ -233,7 +235,51 @@ def main():
     )
     
     # Seçilen banka verisini filtrele
-    bank_df = df[df["bank_name"] == selected_bank]
+    bank_df = df[df["bank_name"] == selected_bank].copy()
+    
+    # ── Ay Seçici (valor / settlement_date bazlı) ──
+    now = datetime.now()
+    date_col = None
+    for _c in ["settlement_date", "transaction_date"]:
+        if _c in bank_df.columns:
+            date_col = _c
+            break
+    
+    available_months = []
+    if date_col:
+        _dates = pd.to_datetime(bank_df[date_col], errors="coerce").dropna()
+        if len(_dates) > 0:
+            available_months = sorted(_dates.dt.to_period("M").unique())
+    
+    current_period = pd.Period(now, freq="M")
+    if available_months:
+        month_labels = [str(m) for m in available_months]
+        if str(current_period) in month_labels:
+            default_idx = month_labels.index(str(current_period))
+        else:
+            default_idx = len(month_labels) - 1
+        
+        selected_label = st.selectbox(
+            "📅 Ay Seçimi (Valor / Hesaba Geçiş Tarihine Göre)",
+            options=month_labels,
+            index=default_idx,
+            help="Sadece seçilen aydaki işlemler gösterilir."
+        )
+        period = pd.Period(selected_label, freq="M")
+        sel_year, sel_month = period.year, period.month
+    else:
+        sel_year, sel_month = now.year, now.month
+    
+    # Sadece seçilen aya ait verileri tut
+    if date_col:
+        _dates = pd.to_datetime(bank_df[date_col], errors="coerce")
+        first_day = pd.Timestamp(sel_year, sel_month, 1)
+        last_day = pd.Timestamp(sel_year, sel_month, monthrange(sel_year, sel_month)[1], 23, 59, 59)
+        bank_df = bank_df[(_dates >= first_day) & (_dates <= last_day)].copy()
+    
+    if bank_df.empty:
+        st.warning(f"⚠️ {selected_bank} için seçilen ayda veri bulunamadı.")
+        return
     
     st.markdown(f"### {selected_bank}")
     st.markdown("---")

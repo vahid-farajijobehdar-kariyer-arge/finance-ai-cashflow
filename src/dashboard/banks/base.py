@@ -25,6 +25,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.ingestion.reader import BankFileReader
 from src.processing.commission_control import add_commission_control
 from src.processing.calculator import filter_successful_transactions
+from calendar import monthrange
 
 
 # Sabitler
@@ -183,6 +184,35 @@ def filter_bank_data(df: pd.DataFrame, bank_key: str) -> pd.DataFrame:
     return df[mask].copy()
 
 
+def filter_by_month(df: pd.DataFrame, year: int, month: int) -> pd.DataFrame:
+    """Valor (settlement_date) tarihine göre sadece seçilen ayı filtrele.
+    
+    Excel dosyasında önceki veya sonraki aya ait satırlar olsa bile
+    bunları hariç tutar — yalnızca seçilen aydaki işlemleri döner.
+    
+    Öncelik: settlement_date > transaction_date
+    """
+    if df.empty:
+        return df
+    
+    # Hangi tarih sütunu kullanılacak
+    date_col = None
+    for col in ["settlement_date", "transaction_date"]:
+        if col in df.columns:
+            date_col = col
+            break
+    
+    if date_col is None:
+        return df
+    
+    dates = pd.to_datetime(df[date_col], errors="coerce")
+    first_day = pd.Timestamp(year, month, 1)
+    last_day = pd.Timestamp(year, month, monthrange(year, month)[1], 23, 59, 59)
+    
+    mask = (dates >= first_day) & (dates <= last_day)
+    return df[mask].copy()
+
+
 class BankDetailPage:
     """Banka detay sayfası şablonu."""
     
@@ -215,6 +245,19 @@ class BankDetailPage:
             self._render_no_bank_data()
             return
         
+        # ── Ay Seçici (valor / settlement_date bazlı) ──
+        now = datetime.now()
+        selected_month = self._render_month_selector(df, now)
+        selected_year = selected_month.year
+        selected_mon = selected_month.month
+        
+        # Sadece seçilen aya ait satırları tut
+        df = filter_by_month(df, selected_year, selected_mon)
+        
+        if df.empty:
+            st.warning(f"⚠️ {self.name} için {selected_month.strftime('%B %Y')} ayında veri bulunamadı.")
+            return
+        
         # Sayfa bölümleri
         self._render_summary_metrics(df)
         self._render_pesin_taksitli(df)
@@ -227,6 +270,44 @@ class BankDetailPage:
         # Footer
         st.markdown("---")
         st.caption("© 2026 Kariyer.net Finans Ekibi")
+    
+    def _render_month_selector(self, df: pd.DataFrame, now: datetime) -> datetime:
+        """Ay seçici widget — varsayılan olarak içinde bulunulan ay."""
+        # Mevcut ayları keşfet (settlement_date > transaction_date)
+        date_col = None
+        for col in ["settlement_date", "transaction_date"]:
+            if col in df.columns:
+                date_col = col
+                break
+        
+        available_months = []
+        if date_col:
+            dates = pd.to_datetime(df[date_col], errors="coerce").dropna()
+            if len(dates) > 0:
+                available_months = sorted(dates.dt.to_period("M").unique())
+        
+        # Geçerli ay default
+        current_period = pd.Period(now, freq="M")
+        
+        if available_months:
+            month_labels = [str(m) for m in available_months]
+            # Geçerli ay listede varsa onu seç, yoksa son ayı seç
+            if str(current_period) in month_labels:
+                default_idx = month_labels.index(str(current_period))
+            else:
+                default_idx = len(month_labels) - 1
+            
+            selected_label = st.selectbox(
+                "📅 Ay Seçimi (Valor / Hesaba Geçiş Tarihine Göre)",
+                options=month_labels,
+                index=default_idx,
+                help="Sadece seçilen aydaki işlemler gösterilir. "
+                     "Excel dosyasında önceki/sonraki aya ait satırlar otomatik olarak hariç tutulur."
+            )
+            period = pd.Period(selected_label, freq="M")
+            return datetime(period.year, period.month, 1)
+        else:
+            return datetime(now.year, now.month, 1)
     
     def _render_no_data(self):
         """Veri yok mesajı."""
