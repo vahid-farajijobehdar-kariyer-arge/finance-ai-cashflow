@@ -335,12 +335,11 @@ class BankDetailPage:
         """Özet metrikler."""
         st.subheader("📊 Özet Metrikler")
         
-        # Negatif brüt tutarlı satırları toplamdan çıkar
-        pos = df[df["gross_amount"] >= 0] if "gross_amount" in df.columns else df
-        total_gross = pos["gross_amount"].sum() if "gross_amount" in pos.columns else 0
-        total_commission = pos["commission_amount"].sum() if "commission_amount" in pos.columns else 0
-        total_net = pos["net_amount"].sum() if "net_amount" in pos.columns else total_gross - total_commission
-        avg_rate = (total_commission / total_gross * 100) if total_gross > 0 else 0
+        # Grand total: tüm değerler dahil (pozitif + negatif)
+        total_gross = df["gross_amount"].sum() if "gross_amount" in df.columns else 0
+        total_commission = df["commission_amount"].sum() if "commission_amount" in df.columns else 0
+        total_net = df["net_amount"].sum() if "net_amount" in df.columns else total_gross - total_commission
+        avg_rate = (total_commission / total_gross * 100) if total_gross != 0 else 0
         
         c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("📊 İşlem Sayısı", f"{len(df):,}")
@@ -427,10 +426,21 @@ class BankDetailPage:
                 inst_df = pd.DataFrame()
             
             txn_count = len(inst_df)
+            # Grand total: tüm işlemler (pozitif + negatif) dahil
             gross = inst_df["gross_amount"].sum() if txn_count > 0 else 0
             actual_comm = inst_df["commission_amount"].sum() if txn_count > 0 else 0
-            actual_rate = (actual_comm / gross) if gross > 0 else None
-            expected_comm = gross * offered_rate if (offered_rate and gross > 0) else 0
+            
+            # Oran hesabı: sadece pozitif (satış) işlemlerden
+            # Negatif (iade) dahil edilirse ortalama oran bozulur
+            if txn_count > 0 and "gross_amount" in inst_df.columns:
+                pos_inst = inst_df[inst_df["gross_amount"] > 0]
+                pos_gross = pos_inst["gross_amount"].sum()
+                pos_comm = pos_inst["commission_amount"].sum()
+                actual_rate = (pos_comm / pos_gross) if pos_gross > 0 else None
+            else:
+                actual_rate = None
+            
+            expected_comm = gross * offered_rate if (offered_rate and gross != 0) else 0
             comm_diff = actual_comm - expected_comm if (offered_rate and txn_count > 0) else 0
             
             # Oran farkı
