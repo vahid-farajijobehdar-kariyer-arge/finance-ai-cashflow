@@ -23,17 +23,17 @@ class TestFilterSuccessfulTransactions:
     """Test suite for transaction filtering"""
     
     def test_filter_excludes_refunds(self):
-        """Test that refunds (İADE) are excluded"""
+        """Test that refunds (İADE) are kept — negative amounts subtract from totals"""
         df = pd.DataFrame({
-            "transaction_type": ["SATIS", "İADE", "SATIS", "IAD"],
-            "gross_amount": [100, 50, 200, 75],
+            "transaction_type": ["SATIS", "İADE", "SATIS", "IADE"],
+            "gross_amount": [100, -50, 200, -75],
         })
         
         result = filter_successful_transactions(df)
         
-        # Only SATIS transactions should remain
-        assert len(result) == 2
-        assert result["gross_amount"].sum() == 300
+        # Refund rows are kept — their negative amounts reduce the total
+        assert len(result) == 4
+        assert result["gross_amount"].sum() == 175
     
     def test_filter_keeps_sales(self):
         """Test that sales are kept"""

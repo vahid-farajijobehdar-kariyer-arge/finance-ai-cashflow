@@ -24,14 +24,9 @@ processing:
     - "Satış"
     - "Peşin Satış"
   
-  # Exclude these transaction types (refunds, cancellations, failures, bank charges)
+  # Exclude these transaction types (cancellations, failures, bank charges)
+  # İADE/iade satırları negatif tutarlıdır — toplamdan düşülmesi için tutulur.
   exclude_transaction_types:
-    - "İADE"
-    - "İade"
-    - "IADE"
-    - "IAD"
-    - "REFUND"
-    - "Refund"
     - "İPTAL"
     - "İptal"
     - "BAŞARISIZ"
