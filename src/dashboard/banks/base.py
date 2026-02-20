@@ -347,6 +347,68 @@ class BankDetailPage:
         c3.metric("💳 Komisyon", format_currency(total_commission))
         c4.metric("💰 Net Tutar", format_currency(total_net))
         c5.metric("📈 Ort. Oran", f"%{avg_rate:.2f}")
+        
+        # ── Garanti: Ödül/Servis Kesintisi ve Kategori Dağılımı ──
+        has_deductions = (
+            ("reward_deduction" in df.columns and df["reward_deduction"].abs().sum() > 0) or
+            ("service_deduction" in df.columns and df["service_deduction"].abs().sum() > 0)
+        )
+        has_categories = "transaction_category" in df.columns and df["transaction_category"].nunique() > 1
+        
+        if has_deductions or has_categories:
+            st.markdown("#### 📂 İşlem Kategori Dağılımı")
+            
+            if has_categories:
+                cat_rows = []
+                for cat, grp in df.groupby("transaction_category", sort=False):
+                    g = grp["gross_amount"].sum() if "gross_amount" in grp.columns else 0
+                    comm = grp["commission_amount"].sum() if "commission_amount" in grp.columns else 0
+                    n = grp["net_amount"].sum() if "net_amount" in grp.columns else 0
+                    reward = grp["reward_deduction"].sum() if "reward_deduction" in grp.columns else 0
+                    service = grp["service_deduction"].sum() if "service_deduction" in grp.columns else 0
+                    cat_rows.append({
+                        "Kategori": cat,
+                        "İşlem Sayısı": len(grp),
+                        "Brüt (₺)": g,
+                        "Komisyon (₺)": comm,
+                        "Ödül Kesintisi (₺)": reward,
+                        "Servis Kesintisi (₺)": service,
+                        "Net (₺)": n,
+                    })
+                cat_df = pd.DataFrame(cat_rows)
+                
+                # Format
+                fmt = {
+                    "İşlem Sayısı": "{:,}",
+                    "Brüt (₺)": "₺{:,.2f}",
+                    "Komisyon (₺)": "₺{:,.2f}",
+                    "Ödül Kesintisi (₺)": "₺{:,.2f}",
+                    "Servis Kesintisi (₺)": "₺{:,.2f}",
+                    "Net (₺)": "₺{:,.2f}",
+                }
+                # Ödül/Servis sıfırsa sütunu kaldır
+                if cat_df["Ödül Kesintisi (₺)"].abs().sum() == 0:
+                    cat_df = cat_df.drop(columns=["Ödül Kesintisi (₺)"])
+                    fmt.pop("Ödül Kesintisi (₺)", None)
+                if cat_df["Servis Kesintisi (₺)"].abs().sum() == 0:
+                    cat_df = cat_df.drop(columns=["Servis Kesintisi (₺)"])
+                    fmt.pop("Servis Kesintisi (₺)", None)
+                
+                st.dataframe(
+                    cat_df.style.format(fmt),
+                    use_container_width=True,
+                    hide_index=True
+                )
+            
+            # Özet: Toplam kesintiler
+            if has_deductions:
+                d1, d2, d3 = st.columns(3)
+                reward_total = df["reward_deduction"].sum() if "reward_deduction" in df.columns else 0
+                service_total = df["service_deduction"].sum() if "service_deduction" in df.columns else 0
+                net_deduction = reward_total + service_total
+                d1.metric("🏷️ Ödül Kesintisi", format_currency(reward_total))
+                d2.metric("🔧 Servis Kesintisi", format_currency(service_total))
+                d3.metric("📊 Toplam Ek Kesinti", format_currency(net_deduction))
     
     def _render_pesin_taksitli(self, df: pd.DataFrame):
         """Peşin vs Taksitli karşılaştırma."""
@@ -742,7 +804,8 @@ class BankDetailPage:
         
         with st.expander("Detay Tablosunu Göster", expanded=False):
             display_cols = [
-                "transaction_date", "gross_amount", "commission_amount", 
+                "transaction_date", "transaction_category", "gross_amount", "commission_amount",
+                "reward_deduction", "service_deduction",
                 "net_amount", "installment_count", "commission_rate",
                 "rate_expected", "commission_diff", "rate_match"
             ]
@@ -751,8 +814,11 @@ class BankDetailPage:
             # Türkçe isimler
             col_names = {
                 "transaction_date": "Tarih",
+                "transaction_category": "Kategori",
                 "gross_amount": "Brüt Tutar",
                 "commission_amount": "Komisyon",
+                "reward_deduction": "Ödül Kesintisi",
+                "service_deduction": "Servis Kesintisi",
                 "net_amount": "Net Tutar",
                 "installment_count": "Taksit",
                 "commission_rate": "Oran",

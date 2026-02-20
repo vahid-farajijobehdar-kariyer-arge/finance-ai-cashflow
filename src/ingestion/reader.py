@@ -425,6 +425,7 @@ class BankFileReader:
         
         # Net tutar: Banka dosyasından geliyorsa onu kullan,
         # yoksa gross - commission olarak hesapla
+        # Garanti için: net = gross - commission - reward_deduction - service_deduction
         if "gross_amount" in df.columns and "commission_amount" in df.columns:
             df["gross_amount"] = pd.to_numeric(df["gross_amount"], errors="coerce").fillna(0)
             df["commission_amount"] = pd.to_numeric(df["commission_amount"], errors="coerce").fillna(0)
@@ -432,7 +433,18 @@ class BankFileReader:
                 df["net_amount"] = pd.to_numeric(df["net_amount"], errors="coerce").fillna(0)
                 # Sadece net_amount boş/sıfır olan satırları hesapla
                 missing_mask = df["net_amount"] == 0
-                df.loc[missing_mask, "net_amount"] = df.loc[missing_mask, "gross_amount"] - df.loc[missing_mask, "commission_amount"]
+                if bank_key == "garanti":
+                    # Garanti: ödül ve servis kesintilerini de düş
+                    reward = pd.to_numeric(df.get("reward_deduction", 0), errors="coerce").fillna(0)
+                    service = pd.to_numeric(df.get("service_deduction", 0), errors="coerce").fillna(0)
+                    df.loc[missing_mask, "net_amount"] = (
+                        df.loc[missing_mask, "gross_amount"]
+                        - df.loc[missing_mask, "commission_amount"]
+                        - reward[missing_mask]
+                        - service[missing_mask]
+                    )
+                else:
+                    df.loc[missing_mask, "net_amount"] = df.loc[missing_mask, "gross_amount"] - df.loc[missing_mask, "commission_amount"]
             else:
                 df["net_amount"] = df["gross_amount"] - df["commission_amount"]
         
@@ -665,12 +677,19 @@ class BankFileReader:
     
     def _transform_garanti(self, df: pd.DataFrame, bank_config: dict) -> pd.DataFrame:
         """Garanti BBVA dönüşümleri."""
-        # Sıfır tutarlı banka kesinti satırlarını filtrele (PNLT=ceza, PUCRT=ücret).
-        # İADE (iade) satırları negatif tutara sahiptir ve toplamdan düşülmelidir.
+        # PNLT/PUCRT satırlarını silme — kategorize et.
+        # PNLT = Ceza iadesi (ODULKESINTISI negatif, banka geri ödüyor)
+        # PUCRT = Hizmet ücreti
+        # İADE satırları negatif tutara sahiptir ve toplamdan düşülmelidir.
         if "transaction_type" in df.columns:
-            exclude_types = ["PNLT", "PUCRT"]
-            mask = ~df["transaction_type"].astype(str).str.strip().str.upper().isin(exclude_types)
-            df = df[mask].copy()
+            tt = df["transaction_type"].astype(str).str.strip().str.upper()
+            df["transaction_category"] = "POS İşlemi"
+            df.loc[tt == "PNLT", "transaction_category"] = "Ceza/Ödül İadesi"
+            df.loc[tt == "PUCRT", "transaction_category"] = "Hizmet Ücreti"
+            # İade işlemlerini (negatif brüt) ayrıca işaretle
+            # (iade satırları PNLT/PUCRT değildir, normal POS iadesidir)
+        else:
+            df["transaction_category"] = "POS İşlemi"
 
         # Tutarları Turkish number formatından parse et
         for col in ["gross_amount", "commission_amount", "net_amount", "reward_deduction", "service_deduction"]:
