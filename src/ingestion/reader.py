@@ -423,30 +423,12 @@ class BankFileReader:
         # Komisyon oranı yoksa hesapla ve doğrula
         df = self.calculate_commission_rate(df)
         
-        # Net tutar: Banka dosyasından geliyorsa onu kullan,
-        # yoksa gross - commission olarak hesapla
-        # Garanti için: net = gross - commission - reward_deduction - service_deduction
+        # Net tutar: her zaman gross - commission
+        # Ödül/servis kesintileri (Garanti vb.) ayrı sütunlarda takip edilir.
         if "gross_amount" in df.columns and "commission_amount" in df.columns:
             df["gross_amount"] = pd.to_numeric(df["gross_amount"], errors="coerce").fillna(0)
             df["commission_amount"] = pd.to_numeric(df["commission_amount"], errors="coerce").fillna(0)
-            if "net_amount" in df.columns:
-                df["net_amount"] = pd.to_numeric(df["net_amount"], errors="coerce").fillna(0)
-                # Sadece net_amount boş/sıfır olan satırları hesapla
-                missing_mask = df["net_amount"] == 0
-                if bank_key == "garanti":
-                    # Garanti: ödül ve servis kesintilerini de düş
-                    reward = pd.to_numeric(df.get("reward_deduction", 0), errors="coerce").fillna(0)
-                    service = pd.to_numeric(df.get("service_deduction", 0), errors="coerce").fillna(0)
-                    df.loc[missing_mask, "net_amount"] = (
-                        df.loc[missing_mask, "gross_amount"]
-                        - df.loc[missing_mask, "commission_amount"]
-                        - reward[missing_mask]
-                        - service[missing_mask]
-                    )
-                else:
-                    df.loc[missing_mask, "net_amount"] = df.loc[missing_mask, "gross_amount"] - df.loc[missing_mask, "commission_amount"]
-            else:
-                df["net_amount"] = df["gross_amount"] - df["commission_amount"]
+            df["net_amount"] = df["gross_amount"] - df["commission_amount"]
         
         df.attrs["bank_key"] = bank_key
         return df
@@ -702,8 +684,9 @@ class BankFileReader:
                 lambda r: abs(r["commission_amount"] / r["gross_amount"]) if r["gross_amount"] != 0 else 0, 
                 axis=1
             )
-            # net_amount: Excel'deki NET sütununu olduğu gibi kullan (zaten map edildi).
-            # Aritmetik hesaplama yapma — banka'nın verdiği NET değeri doğrudur.
+            # net_amount = gross - commission (ödül/servis kesintileri NET'e dahil değil,
+            # ayrı sütun olarak takip edilir)
+            df["net_amount"] = df["gross_amount"] - df["commission_amount"]
         
         # Taksit sayısı (0 = peşin)
         if "installment_count" in df.columns:

@@ -355,7 +355,7 @@ class BankDetailPage:
         # Grand total: tüm değerler dahil (pozitif + negatif)
         total_gross = df["gross_amount"].sum() if "gross_amount" in df.columns else 0
         total_commission = df["commission_amount"].sum() if "commission_amount" in df.columns else 0
-        total_net = df["net_amount"].sum() if "net_amount" in df.columns else total_gross - total_commission
+        total_net = total_gross - total_commission
         avg_rate = (total_commission / total_gross * 100) if total_gross != 0 else 0
         
         c1, c2, c3, c4, c5 = st.columns(5)
@@ -366,21 +366,20 @@ class BankDetailPage:
         c5.metric("📈 Ort. Oran", f"%{avg_rate:.2f}")
         
         # NET formül açıklaması
+        st.caption(
+            f"NET = Brüt ({format_currency_full(total_gross)}) "
+            f"- Komisyon ({format_currency_full(total_commission)}) "
+            f"= **{format_currency_full(total_net)}**"
+        )
+        
+        # Ek kesintiler varsa ayrıca göster
         reward_total = df["reward_deduction"].sum() if "reward_deduction" in df.columns else 0
         service_total = df["service_deduction"].sum() if "service_deduction" in df.columns else 0
         if abs(reward_total) > 0 or abs(service_total) > 0:
             st.caption(
-                f"NET = Brüt ({format_currency_full(total_gross)}) "
-                f"- Komisyon ({format_currency_full(total_commission)}) "
-                f"- Ödül Kes. ({format_currency_full(reward_total)}) "
-                f"- Servis Kes. ({format_currency_full(service_total)}) "
-                f"= **{format_currency_full(total_net)}**"
-            )
-        else:
-            st.caption(
-                f"NET = Brüt ({format_currency_full(total_gross)}) "
-                f"- Komisyon ({format_currency_full(total_commission)}) "
-                f"= **{format_currency_full(total_net)}**"
+                f"ℹ️ Ek Kesintiler (NET'e dahil değil): "
+                f"Ödül Kes. ({format_currency_full(reward_total)}), "
+                f"Servis Kes. ({format_currency_full(service_total)})"
             )
         
         # ── Garanti: Ödül/Servis Kesintisi ve Kategori Dağılımı ──
