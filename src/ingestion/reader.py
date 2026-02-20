@@ -683,9 +683,8 @@ class BankFileReader:
                 lambda r: abs(r["commission_amount"] / r["gross_amount"]) if r["gross_amount"] != 0 else 0, 
                 axis=1
             )
-            # Garanti: BURUT - KOMISYON - ODULKESINTISI
-            reward = df["reward_deduction"] if "reward_deduction" in df.columns else 0
-            df["net_amount"] = df["gross_amount"] - df["commission_amount"] - reward
+            # net_amount: Excel'deki NET sütununu olduğu gibi kullan (zaten map edildi).
+            # Aritmetik hesaplama yapma — banka'nın verdiği NET değeri doğrudur.
         
         # Taksit sayısı (0 = peşin)
         if "installment_count" in df.columns:
