@@ -259,12 +259,12 @@ class BankDetailPage:
             return
         
         # Sayfa bölümleri
+        self._render_detail_table(df)
         self._render_summary_metrics(df)
         self._render_pesin_taksitli(df)
         self._render_commission_diff_analysis(df)
         self._render_monthly_trend(df)
         self._render_installment_distribution(df)
-        self._render_detail_table(df)
         self._render_export(df)
         
         # Footer
