@@ -127,7 +127,24 @@ BANK_DEFINITIONS = {
 
 
 def format_currency(value: float) -> str:
-    """Türk Lirası formatı."""
+    """Türk Lirası formatı - okunabilir K/M kısaltmalı."""
+    if pd.isna(value):
+        return "-"
+    is_negative = value < 0
+    abs_val = abs(value)
+    if abs_val >= 1_000_000:
+        formatted = f"{abs_val/1_000_000:.2f}".replace(".", ",") + "M"
+    elif abs_val >= 10_000:
+        formatted = f"{abs_val/1_000:.1f}".replace(".", ",") + "K"
+    else:
+        formatted = f"{abs_val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    if is_negative:
+        formatted = "-" + formatted
+    return f"₺{formatted}"
+
+
+def format_currency_full(value: float) -> str:
+    """Türk Lirası tam format (kısaltmasız)."""
     if pd.isna(value):
         return "-"
     return f"₺{value:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -348,6 +365,24 @@ class BankDetailPage:
         c4.metric("💰 Net Tutar", format_currency(total_net))
         c5.metric("📈 Ort. Oran", f"%{avg_rate:.2f}")
         
+        # NET formül açıklaması
+        reward_total = df["reward_deduction"].sum() if "reward_deduction" in df.columns else 0
+        service_total = df["service_deduction"].sum() if "service_deduction" in df.columns else 0
+        if abs(reward_total) > 0 or abs(service_total) > 0:
+            st.caption(
+                f"NET = Brüt ({format_currency_full(total_gross)}) "
+                f"- Komisyon ({format_currency_full(total_commission)}) "
+                f"- Ödül Kes. ({format_currency_full(reward_total)}) "
+                f"- Servis Kes. ({format_currency_full(service_total)}) "
+                f"= **{format_currency_full(total_net)}**"
+            )
+        else:
+            st.caption(
+                f"NET = Brüt ({format_currency_full(total_gross)}) "
+                f"- Komisyon ({format_currency_full(total_commission)}) "
+                f"= **{format_currency_full(total_net)}**"
+            )
+        
         # ── Garanti: Ödül/Servis Kesintisi ve Kategori Dağılımı ──
         has_deductions = (
             ("reward_deduction" in df.columns and df["reward_deduction"].abs().sum() > 0) or
@@ -411,20 +446,23 @@ class BankDetailPage:
                 d3.metric("📊 Toplam Ek Kesinti", format_currency(net_deduction))
     
     def _render_pesin_taksitli(self, df: pd.DataFrame):
-        """Peşin vs Taksitli karşılaştırma."""
+        """Peşin vs Taksitli karşılaştırma — sadece POS işlemleri."""
         st.markdown("---")
         st.subheader("💵 Peşin vs Taksitli")
         
+        # Sadece POS işlemlerini kullan (PNLT/PUCRT hariç)
+        pos_df = df[df["transaction_category"] == "POS İşlemi"].copy() if "transaction_category" in df.columns else df.copy()
+        
         # Taksit sayısına göre ayır
-        inst_col = "installment_count" if "installment_count" in df.columns else None
+        inst_col = "installment_count" if "installment_count" in pos_df.columns else None
         
         if inst_col is None:
             st.info("Taksit bilgisi bulunamadı.")
             return
         
-        pesin_mask = df[inst_col].isin([0, 1, "0", "1", "Peşin", "peşin", "PESIN", "TEK"])
-        pesin_df = df[pesin_mask]
-        taksitli_df = df[~pesin_mask]
+        pesin_mask = pos_df[inst_col].isin([0, 1, "0", "1", "Peşin", "peşin", "PESIN", "TEK"])
+        pesin_df = pos_df[pesin_mask]
+        taksitli_df = pos_df[~pesin_mask]
         
         col1, col2 = st.columns(2)
         
@@ -433,11 +471,13 @@ class BankDetailPage:
             if len(pesin_df) > 0:
                 p_gross = pesin_df["gross_amount"].sum()
                 p_comm = pesin_df["commission_amount"].sum()
+                p_net = pesin_df["net_amount"].sum() if "net_amount" in pesin_df.columns else p_gross - p_comm
                 p_rate = (p_comm / p_gross * 100) if p_gross > 0 else 0
                 
                 st.metric("İşlem Sayısı", f"{len(pesin_df):,}")
                 st.metric("Brüt Tutar", format_currency(p_gross))
                 st.metric("Komisyon", format_currency(p_comm))
+                st.metric("Net Tutar", format_currency(p_net))
                 st.metric("Ortalama Oran", f"%{p_rate:.2f}")
             else:
                 st.info("Tek çekim işlemi yok.")
@@ -447,17 +487,19 @@ class BankDetailPage:
             if len(taksitli_df) > 0:
                 t_gross = taksitli_df["gross_amount"].sum()
                 t_comm = taksitli_df["commission_amount"].sum()
+                t_net = taksitli_df["net_amount"].sum() if "net_amount" in taksitli_df.columns else t_gross - t_comm
                 t_rate = (t_comm / t_gross * 100) if t_gross > 0 else 0
                 
                 st.metric("İşlem Sayısı", f"{len(taksitli_df):,}")
                 st.metric("Brüt Tutar", format_currency(t_gross))
                 st.metric("Komisyon", format_currency(t_comm))
+                st.metric("Net Tutar", format_currency(t_net))
                 st.metric("Ortalama Oran", f"%{t_rate:.2f}")
             else:
                 st.info("Taksitli işlem yok.")
     
     def _render_commission_diff_analysis(self, df: pd.DataFrame):
-        """Sözleşme vs Uygulanan oran karşılaştırması."""
+        """Sözleşme vs Uygulanan oran karşılaştırması — sadece POS işlemleri."""
         st.markdown("---")
         st.subheader("📋 Sözleşme vs Uygulanan Oranlar")
         
@@ -468,14 +510,17 @@ class BankDetailPage:
             st.warning(f"{self.name} için sözleşme oranları tanımlanmamış (commission_rates.yaml).")
             return
         
+        # Sadece POS işlemlerini kullan (PNLT/PUCRT hariç)
+        pos_df = df[df["transaction_category"] == "POS İşlemi"].copy() if "transaction_category" in df.columns else df.copy()
+        
         inst_col = "installment_count"
-        has_data = inst_col in df.columns
+        has_data = inst_col in pos_df.columns
         has_control = "rate_match" in df.columns and "commission_diff" in df.columns
         
         # ────── ORAN KARŞILAŞTIRMA TABLOSU ──────
         rows = []
         all_installments = sorted(set(list(yaml_rates.keys()) + 
-                                      ([int(x) for x in df[inst_col].dropna().unique()] if has_data else [])))
+                                      ([int(x) for x in pos_df[inst_col].dropna().unique()] if has_data else [])))
         
         for inst in all_installments:
             inst_int = int(inst)
@@ -483,7 +528,7 @@ class BankDetailPage:
             
             # Gerçek veriden taksit filtrele
             if has_data:
-                inst_df = df[df[inst_col] == inst_int]
+                inst_df = pos_df[pos_df[inst_col] == inst_int]
             else:
                 inst_df = pd.DataFrame()
             
@@ -743,24 +788,29 @@ class BankDetailPage:
         st.plotly_chart(fig, width="stretch")
     
     def _render_installment_distribution(self, df: pd.DataFrame):
-        """Taksit dağılımı."""
+        """Taksit dağılımı — sadece POS işlemleri."""
         st.markdown("---")
         st.subheader("📊 Taksit Dağılımı")
         
+        # Sadece POS işlemlerini kullan
+        pos_df = df[df["transaction_category"] == "POS İşlemi"].copy() if "transaction_category" in df.columns else df.copy()
+        
         inst_col = "installment_count"
-        if inst_col not in df.columns:
+        if inst_col not in pos_df.columns:
             st.info("Taksit bilgisi bulunamadı.")
             return
         
-        taksit_summary = df.groupby(inst_col).agg({
+        taksit_summary = pos_df.groupby(inst_col).agg({
             "gross_amount": "sum",
             "commission_amount": "sum"
         }).reset_index()
         taksit_summary.columns = ["Taksit", "Tutar", "Komisyon"]
         
         # Oran hesapla
-        taksit_summary["Oran %"] = (taksit_summary["Komisyon"] / taksit_summary["Tutar"] * 100).round(2)
-        taksit_summary["İşlem Sayısı"] = df.groupby(inst_col).size().values
+        taksit_summary["Oran %"] = taksit_summary.apply(
+            lambda r: round(r["Komisyon"] / r["Tutar"] * 100, 2) if r["Tutar"] != 0 else 0, axis=1
+        )
+        taksit_summary["İşlem Sayısı"] = pos_df.groupby(inst_col).size().values
         
         col1, col2 = st.columns(2)
         
