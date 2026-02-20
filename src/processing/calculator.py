@@ -101,11 +101,11 @@ def filter_successful_transactions(
     
     # Get types to exclude (used as substring patterns)
     # İADE/iade satırları negatif tutara sahiptir — toplamdan düşülmesi için tutulur.
-    # PNLT (ceza) ve PUCRT (ücret) satırları banka kesintileridir, POS işlemi değildir.
+    # PNLT (ceza/ödül iadesi) ve PUCRT (hizmet ücreti) kategorize edilir, hariç tutulmaz.
     if exclude_types is None:
         exclude_types = processing_settings.get(
             "exclude_transaction_types",
-            ["İPTAL", "IPTAL", "BAŞARISIZ", "PNLT", "PUCRT"]
+            ["İPTAL", "IPTAL", "BAŞARISIZ"]
         )
     
     # If transaction_type column doesn't exist, skip type-based filtering

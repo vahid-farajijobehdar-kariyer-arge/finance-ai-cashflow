@@ -24,15 +24,14 @@ processing:
     - "Satış"
     - "Peşin Satış"
   
-  # Exclude these transaction types (cancellations, failures, bank charges)
+  # Exclude these transaction types (cancellations, failures)
   # İADE/iade satırları negatif tutarlıdır — toplamdan düşülmesi için tutulur.
+  # PNLT (ceza/ödül iadesi) ve PUCRT (hizmet ücreti) kategorize edilir, hariç tutulmaz.
   exclude_transaction_types:
     - "İPTAL"
     - "İptal"
     - "BAŞARISIZ"
     - "Başarısız"
-    - "PNLT"
-    - "PUCRT"
 
 # Dashboard settings
 dashboard:

@@ -95,7 +95,12 @@ def display_bank_metrics(bank_df: pd.DataFrame, bank_name: str):
     with col2:
         st.metric("💳 Komisyon", f"₺{bank_df['commission_amount'].sum():,.2f}")
     with col3:
-        st.metric("📈 Net Tutar", f"₺{bank_df['net_amount'].sum():,.2f}")
+        # net_amount sütunu varsa onu kullan (Garanti: ödül/servis kesintileri dahil)
+        if "net_amount" in bank_df.columns:
+            net_val = bank_df["net_amount"].sum()
+        else:
+            net_val = bank_df["gross_amount"].sum() - bank_df["commission_amount"].sum()
+        st.metric("📈 Net Tutar", f"₺{net_val:,.2f}")
     with col4:
         st.metric("📊 İşlem Sayısı", f"{len(bank_df):,}")
 

@@ -852,7 +852,11 @@ def display_control_validation(df: pd.DataFrame):
             control_summary["Komisyon"] / control_summary["Tutar"] * 100
         ).round(2)
     
-    control_summary["Net Tutar"] = control_summary["Tutar"] - control_summary.get("Komisyon", control_summary["Beklenen Komisyon"])
+    # Net Tutar: net_amount sütunu varsa onu kullan (Garanti için ödül/servis kesintileri dahil)
+    if "Net Tutar" in df.columns:
+        control_summary["Net Tutar"] = df.groupby("Banka Adı")["Net Tutar"].sum().values
+    else:
+        control_summary["Net Tutar"] = control_summary["Tutar"] - control_summary.get("Komisyon", control_summary["Beklenen Komisyon"])
     
     col1, col2 = st.columns(2)
     
@@ -893,7 +897,8 @@ def display_control_validation(df: pd.DataFrame):
     total_komisyon = df["Komisyon"].sum() if "Komisyon" in df.columns else df["Beklenen Komisyon"].sum()
     total_komisyon_expected = df["Beklenen Komisyon"].sum() if "Beklenen Komisyon" in df.columns else total_komisyon
     total_diff = total_komisyon - total_komisyon_expected
-    total_net = total_tutar - total_komisyon
+    # Net Tutar: net_amount (rename → "Net Tutar") varsa onu kullan
+    total_net = df["Net Tutar"].sum() if "Net Tutar" in df.columns else total_tutar - total_komisyon
     
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Toplam Çekim", f"₺{total_tutar:,.2f}")
