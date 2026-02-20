@@ -397,7 +397,7 @@ class BankDetailPage:
                 for cat, grp in df.groupby("transaction_category", sort=False):
                     g = grp["gross_amount"].sum() if "gross_amount" in grp.columns else 0
                     comm = grp["commission_amount"].sum() if "commission_amount" in grp.columns else 0
-                    n = grp["net_amount"].sum() if "net_amount" in grp.columns else 0
+                    n = g - comm
                     reward = grp["reward_deduction"].sum() if "reward_deduction" in grp.columns else 0
                     service = grp["service_deduction"].sum() if "service_deduction" in grp.columns else 0
                     cat_rows.append({
@@ -470,7 +470,7 @@ class BankDetailPage:
             if len(pesin_df) > 0:
                 p_gross = pesin_df["gross_amount"].sum()
                 p_comm = pesin_df["commission_amount"].sum()
-                p_net = pesin_df["net_amount"].sum() if "net_amount" in pesin_df.columns else p_gross - p_comm
+                p_net = p_gross - p_comm
                 p_rate = (p_comm / p_gross * 100) if p_gross > 0 else 0
                 
                 st.metric("İşlem Sayısı", f"{len(pesin_df):,}")
@@ -486,7 +486,7 @@ class BankDetailPage:
             if len(taksitli_df) > 0:
                 t_gross = taksitli_df["gross_amount"].sum()
                 t_comm = taksitli_df["commission_amount"].sum()
-                t_net = taksitli_df["net_amount"].sum() if "net_amount" in taksitli_df.columns else t_gross - t_comm
+                t_net = t_gross - t_comm
                 t_rate = (t_comm / t_gross * 100) if t_gross > 0 else 0
                 
                 st.metric("İşlem Sayısı", f"{len(taksitli_df):,}")
