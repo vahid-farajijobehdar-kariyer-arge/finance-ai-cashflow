@@ -457,8 +457,12 @@ def render_upload_section():
                     # Totals
                     totals = analysis.get("totals", {})
                     if totals:
-                        st.metric("Brüt Tutar", f"₺{totals.get('total_gross', 0):,.2f}")
-                        st.metric("Komisyon", f"₺{totals.get('total_commission', 0):,.2f}")
+                        gross = totals.get('total_gross', 0)
+                        commission = totals.get('total_commission', 0)
+                        net = gross - commission
+                        st.metric("Brüt Tutar", f"₺{gross:,.2f}")
+                        st.metric("Komisyon", f"₺{commission:,.2f}")
+                        st.metric("Net", f"₺{net:,.2f}")
                 
                 # Tarih ve Kaydetme Seçenekleri
                 st.markdown("---")
