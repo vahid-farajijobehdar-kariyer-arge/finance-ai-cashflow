@@ -101,10 +101,11 @@ def filter_successful_transactions(
     
     # Get types to exclude (used as substring patterns)
     # İADE/refund rows are excluded — they should not appear in commission analysis.
+    # PNLT (ceza) ve PUCRT (ücret) satırları banka kesintileridir, POS işlemi değildir.
     if exclude_types is None:
         exclude_types = processing_settings.get(
             "exclude_transaction_types",
-            ["İPTAL", "IPTAL", "BAŞARISIZ", "İADE", "IADE", "IAD", "REFUND"]
+            ["İPTAL", "IPTAL", "BAŞARISIZ", "İADE", "IADE", "IAD", "REFUND", "PNLT", "PUCRT"]
         )
     
     # If transaction_type column doesn't exist, skip type-based filtering

@@ -24,7 +24,7 @@ processing:
     - "Satış"
     - "Peşin Satış"
   
-  # Exclude these transaction types (refunds, cancellations, failures)
+  # Exclude these transaction types (refunds, cancellations, failures, bank charges)
   exclude_transaction_types:
     - "İADE"
     - "İade"
@@ -36,6 +36,8 @@ processing:
     - "İptal"
     - "BAŞARISIZ"
     - "Başarısız"
+    - "PNLT"
+    - "PUCRT"
 
 # Dashboard settings
 dashboard:

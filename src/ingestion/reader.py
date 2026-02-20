@@ -665,6 +665,11 @@ class BankFileReader:
     
     def _transform_garanti(self, df: pd.DataFrame, bank_config: dict) -> pd.DataFrame:
         """Garanti BBVA dönüşümleri."""
+        # Borç (B) satırlarını filtrele — PNLT (ceza), PUCRT (ücret) vs.
+        # Sadece Alacak (A) satırları gerçek POS işlemidir.
+        if "credit_debit" in df.columns:
+            df = df[df["credit_debit"].astype(str).str.strip().str.upper() == "A"].copy()
+
         # Tutarları Turkish number formatından parse et
         for col in ["gross_amount", "commission_amount", "net_amount", "reward_deduction", "service_deduction"]:
             if col in df.columns:
