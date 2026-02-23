@@ -175,12 +175,8 @@ banks:
       Brüt Tutar: gross_amount_old
       # İşlem Tutarı = Brüt Tutar olarak kullanılır
       İşlem Tutarı: gross_amount
-      # Komisyon _transform_ykb içinde hesaplanır: Taksitli İşlem Komisyonu + Katkı Payı TL
-      # Peşin İşlem Komisyonu (bazı dosyalarda olabilir, komisyona dahil DEĞİL)
-      Peşin İşlem Komisyonu: commission_pesin
-      # Taksitli İşlem Komisyonu (eski sütun, yedek)
+      # Komisyon = Taksitli İşlem Komisyonu + Katkı Payı TL (_transform_ykb içinde hesaplanır)
       Taksitli İşlem Komisyonu: commission_taksitli
-      # Katkı Payı TL — komisyon hesaplamasına dahil
       Katkı Payı TL: katki_payi_tl
       # Net = Brüt - Komisyon (hesaplanır)
       Net Tutar: net_amount

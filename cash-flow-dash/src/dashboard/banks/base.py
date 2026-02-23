@@ -370,6 +370,13 @@ class BankDetailPage:
             f"= **{format_currency_full(total_net)}**"
         )
         
+        # YKB komisyon formülü açıklaması
+        if self.bank_key == "ykb":
+            st.caption(
+                "ℹ️ **YKB Komisyon** = Taksitli İşlem Komisyonu + Katkı Payı TL "
+                "(artı veya eksi olabilir — iade işlemlerinde negatif)"
+            )
+        
         # Ek kesintiler varsa ayrıca göster
         reward_total = df["reward_deduction"].sum() if "reward_deduction" in df.columns else 0
         service_total = df["service_deduction"].sum() if "service_deduction" in df.columns else 0

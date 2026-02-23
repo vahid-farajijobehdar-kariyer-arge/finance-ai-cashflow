@@ -442,10 +442,48 @@ Her işlem satırı için aşağıdaki kontrol bayrakları otomatik olarak atan�
 """)
 
 # ═══════════════════════════════════════════════════════
-# 9. EK KESİNTİLER (GARANTİ BBVA)
+# 9. YAPI KREDİ (YKB) KOMİSYON HESAPLAMASI
 # ═══════════════════════════════════════════════════════
 st.markdown("---")
-st.header("9️⃣ Ek Kesintiler (Garanti BBVA)")
+st.header("9️⃣ Yapı Kredi (YKB) Komisyon Hesaplaması")
+
+st.markdown("""
+Yapı Kredi dosyalarında komisyon tutarı doğrudan bir sütunda verilmez.  
+Komisyon, iki ayrı sütunun toplanmasıyla hesaplanır:
+
+```
+commission_amount = Taksitli İşlem Komisyonu + Katkı Payı TL
+```
+
+| Kaynak Sütun | Eşleşme | Açıklama |
+|-------------|---------|----------|
+| **Taksitli İşlem Komisyonu** | `commission_taksitli` | Taksitli işlemler için banka komisyonu |
+| **Katkı Payı TL** | `katki_payi_tl` | Banka katkı payı (ek komisyon) |
+
+**Önemli Notlar:**
+- Komisyon tutarı **artı veya eksi** olabilir — iade işlemlerinde negatif değer alır
+- `Peşin İşlem Komisyonu` sütunu hesaplamaya **dahil edilmez**
+- Net tutar her zaman `Brüt − Komisyon` formülüyle hesaplanır
+- Komisyon oranı = `commission_amount / gross_amount` (işaret korunur)
+
+**YKB Sütun Eşleştirmeleri:**
+
+| Dosya Sütunu | Standart Sütun | Açıklama |
+|-------------|---------------|----------|
+| Yükleme Tarihi | `transaction_date` | İşlem günü |
+| Ödeme Tarihi | `settlement_date` | Valor (hesaba geçiş) |
+| İşlem Tutarı | `gross_amount` | Brüt tutar |
+| Taksitli İşlem Komisyonu | `commission_taksitli` | Komisyon bileşeni 1 |
+| Katkı Payı TL | `katki_payi_tl` | Komisyon bileşeni 2 |
+| Net Tutar / Net | `net_amount` | Net tutar |
+| Taksit Sayısı | `installment_count` | "3/3" formatında olabilir |
+""")
+
+# ═══════════════════════════════════════════════════════
+# 10. EK KESİNTİLER (GARANTİ BBVA)
+# ═══════════════════════════════════════════════════════
+st.markdown("---")
+st.header("🔟 Ek Kesintiler (Garanti BBVA)")
 
 st.markdown("""
 Garanti BBVA dosyalarında standart komisyon dışında ek kesintiler bulunabilir:
@@ -463,10 +501,10 @@ Ek kesintiler sadece bilgi amaçlı gösterilir.
 """)
 
 # ═══════════════════════════════════════════════════════
-# 10. GÖSTERIM FORMATLARI
+# 11. GÖSTERIM FORMATLARI
 # ═══════════════════════════════════════════════════════
 st.markdown("---")
-st.header("🔟 Gösterim Formatları")
+st.header("1️⃣1️⃣ Gösterim Formatları")
 
 st.markdown("""
 Dashboard'da kullanılan sayı formatları:

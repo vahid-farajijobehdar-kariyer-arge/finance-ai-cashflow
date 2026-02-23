@@ -364,7 +364,7 @@ banks_detailed = pd.DataFrame({
     "Kod": ["akbank", "garanti", "halkbank", "isbank", "qnb", "vakifbank", "ykb", "ziraat"],
     "Dosya Formatı": ["Excel (.xlsx)", "Excel (.xlsx)", "Excel (.xlsx)", "Excel (.xlsx)", "Excel (.xls)", "CSV", "Excel (.xlsx)", "Excel (.xlsx)"],
     "Encoding": ["UTF-8", "UTF-8", "UTF-8", "UTF-8", "UTF-8", "ISO-8859-9", "UTF-8", "UTF-8"],
-    "Özel Not": ["-", "-", "-", "-", "Eski Excel formatı", "Noktalı virgül ayırıcı", "-", "-"]
+    "Özel Not": ["-", "-", "-", "-", "Eski Excel formatı", "Noktalı virgül ayırıcı", "Komisyon = Taksitli İşlem Kom. + Katkı Payı TL", "-"]
 })
 
 st.dataframe(banks_detailed, width="stretch", hide_index=True)
