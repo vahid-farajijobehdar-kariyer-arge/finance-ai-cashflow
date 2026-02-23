@@ -373,8 +373,8 @@ class BankDetailPage:
         # YKB komisyon formülü açıklaması
         if self.bank_key == "ykb":
             st.caption(
-                "ℹ️ **YKB Komisyon** = Taksitli İşlem Komisyonu + Katkı Payı TL "
-                "(artı veya eksi olabilir — iade işlemlerinde negatif)"
+                "ℹ️ **YKB Komisyon** = |Taksitli İşlem Komisyonu + Katkı Payı TL| "
+                "(her zaman pozitif — iade işlemlerinde brüt tutar negatif olduğu için toplam doğru hesaplanır)"
             )
         
         # Ek kesintiler varsa ayrıca göster

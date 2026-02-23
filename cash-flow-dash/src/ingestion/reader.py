@@ -820,16 +820,17 @@ class BankFileReader:
           - Yükleme Tarihi → transaction_date (İşlem Günü)
           - Ödeme Tarihi → settlement_date (Valor)
           - İşlem Tutarı → gross_amount (Brüt Tutar)
-          - Komisyon = Taksitli İşlem Komisyonu + Katkı Payı TL (artı/eksi olabilir)
+          - Komisyon = |Taksitli İşlem Komisyonu + Katkı Payı TL| (her zaman pozitif)
           - Net = Brüt - Komisyon (hesaplanır)
           - Taksit Sayısı / Taksit Numarası → installment_count
         """
         # ── Komisyon tutarı ──
         # Komisyon = Taksitli İşlem Komisyonu + Katkı Payı TL
-        # Artı veya eksi olabilir (iade işlemlerinde negatif)
+        # Komisyon her zaman pozitif; iade işlemlerinde gross_amount negatif olduğu için
+        # toplam (SUM) doğal olarak doğru hesaplanır.
         taksitli = pd.to_numeric(df.get("commission_taksitli", pd.Series(0, index=df.index)), errors="coerce").fillna(0)
         katki = pd.to_numeric(df.get("katki_payi_tl", pd.Series(0, index=df.index)), errors="coerce").fillna(0)
-        df["commission_amount"] = taksitli + katki
+        df["commission_amount"] = (taksitli + katki).abs()
         
         # ── Brüt Tutar ──
         if "gross_amount" in df.columns:
@@ -839,10 +840,10 @@ class BankFileReader:
         if "gross_amount" in df.columns and "commission_amount" in df.columns:
             df["net_amount"] = df["gross_amount"] - df["commission_amount"]
         
-        # ── Komisyon oranı hesapla (işaret korunur: iade işlemlerinde negatif olabilir) ──
+        # ── Komisyon oranı hesapla (her zaman pozitif) ──
         if "gross_amount" in df.columns and "commission_amount" in df.columns:
             df["commission_rate"] = df.apply(
-                lambda r: r["commission_amount"] / r["gross_amount"] if r["gross_amount"] != 0 else 0,
+                lambda r: abs(r["commission_amount"] / r["gross_amount"]) if r["gross_amount"] != 0 else 0,
                 axis=1
             )
         
