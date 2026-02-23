@@ -1,0 +1,160 @@
+# Kariyer.net Finans - POS Komisyon Takip Sistemi
+# Azure DevOps CI/CD Pipeline
+
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+  paths:
+    exclude:
+      - README.md
+      - docs/*
+
+pr:
+  branches:
+    include:
+      - main
+
+variables:
+  pythonVersion: '3.11'
+  appName: 'cash-flow-dashboard'
+  azureSubscription: 'KariyerNet-Azure-Connection'
+
+stages:
+  # ============================================
+  # STAGE 1: Build & Test
+  # ============================================
+  - stage: Build
+    displayName: '🔨 Build & Test'
+    jobs:
+      - job: BuildJob
+        displayName: 'Build and Test'
+        pool:
+          vmImage: 'ubuntu-latest'
+        
+        steps:
+          - task: UsePythonVersion@0
+            displayName: '🐍 Python $(pythonVersion) Kurulumu'
+            inputs:
+              versionSpec: '$(pythonVersion)'
+              addToPath: true
+
+          - script: |
+              python -m pip install --upgrade pip
+              pip install -r requirements.txt
+              pip install pytest pytest-cov flake8 black isort
+            displayName: '📦 Bağımlılıkları Yükle'
+
+          - script: |
+              flake8 src/ --max-line-length=120 --ignore=E501,W503 || true
+            displayName: '🔍 Lint Kontrolü (Flake8)'
+
+          - script: |
+              black --check src/ || true
+            displayName: '🎨 Format Kontrolü (Black)'
+
+          - script: |
+              python -m pytest tests/ -v --cov=src --cov-report=xml --cov-report=html --junitxml=test-results.xml || true
+            displayName: '🧪 Unit Testleri Çalıştır'
+
+          - task: PublishTestResults@2
+            displayName: '📊 Test Sonuçlarını Yayınla'
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/test-results.xml'
+              mergeTestResults: true
+            condition: always()
+
+          - task: PublishCodeCoverageResults@1
+            displayName: '📈 Code Coverage Yayınla'
+            inputs:
+              codeCoverageTool: 'Cobertura'
+              summaryFileLocation: '$(System.DefaultWorkingDirectory)/coverage.xml'
+            condition: always()
+
+          - task: CopyFiles@2
+            displayName: '📁 Artifact Dosyalarını Kopyala'
+            inputs:
+              SourceFolder: '$(Build.SourcesDirectory)'
+              Contents: |
+                src/**
+                config/**
+                requirements.txt
+                run.sh
+                .streamlit/**
+              TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+          - task: PublishBuildArtifacts@1
+            displayName: '📤 Artifact Yayınla'
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: 'drop'
+
+  # ============================================
+  # STAGE 2: Deploy to Staging
+  # ============================================
+  - stage: DeployStaging
+    displayName: '🚀 Staging Deploy'
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    jobs:
+      - deployment: DeployToStaging
+        displayName: 'Deploy to Staging'
+        pool:
+          vmImage: 'ubuntu-latest'
+        environment: 'staging'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadBuildArtifacts@1
+                  inputs:
+                    buildType: 'current'
+                    downloadType: 'single'
+                    artifactName: 'drop'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+
+                - task: AzureWebApp@1
+                  displayName: '☁️ Azure App Service Deploy (Staging)'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webAppLinux'
+                    appName: '$(appName)-staging'
+                    package: '$(System.ArtifactsDirectory)/drop'
+                    runtimeStack: 'PYTHON|3.11'
+                    startUpCommand: 'streamlit run src/dashboard/app.py --server.port 8000 --server.address 0.0.0.0'
+
+  # ============================================
+  # STAGE 3: Deploy to Production
+  # ============================================
+  - stage: DeployProduction
+    displayName: '🏭 Production Deploy'
+    dependsOn: Build
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: DeployToProduction
+        displayName: 'Deploy to Production'
+        pool:
+          vmImage: 'ubuntu-latest'
+        environment: 'production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadBuildArtifacts@1
+                  inputs:
+                    buildType: 'current'
+                    downloadType: 'single'
+                    artifactName: 'drop'
+                    downloadPath: '$(System.ArtifactsDirectory)'
+
+                - task: AzureWebApp@1
+                  displayName: '☁️ Azure App Service Deploy (Production)'
+                  inputs:
+                    azureSubscription: '$(azureSubscription)'
+                    appType: 'webAppLinux'
+                    appName: '$(appName)'
+                    package: '$(System.ArtifactsDirectory)/drop'
+                    runtimeStack: 'PYTHON|3.11'
+                    startUpCommand: 'streamlit run src/dashboard/app.py --server.port 8000 --server.address 0.0.0.0'

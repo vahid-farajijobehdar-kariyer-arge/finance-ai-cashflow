@@ -1,0 +1,25 @@
+# Kariyer.net Finans - POS Komisyon Takip Sistemi
+# Docker Compose Configuration
+
+version: '3.8'
+
+services:
+  dashboard:
+    build: .
+    container_name: cash-flow-dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    environment:
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-kariyer2026}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "app=cash-flow-dashboard"
+      - "team=kariyer-finans"

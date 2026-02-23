@@ -1,0 +1,26 @@
+# Cash Flow Dashboard - Dependencies
+# Core Data Processing
+pandas>=2.0.0
+openpyxl>=3.1.0
+xlrd>=2.0.0
+matplotlib>=3.7.0
+
+# Data Validation
+pandera>=0.18.0
+pydantic>=2.0.0
+
+# Date/Time Handling
+python-dateutil>=2.8.0
+
+# Dashboard & Visualization
+streamlit>=1.54.0
+plotly>=5.18.0
+
+# Configuration
+pyyaml>=6.0.0
+python-dotenv>=1.0.0
+# HTTP Requests (for rate imports from URL)
+requests>=2.31.0
+
+# Azure Storage (backup) - optional, not needed for Streamlit Cloud
+# azure-storage-blob>=12.19.0

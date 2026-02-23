@@ -1,0 +1,210 @@
+# Banka Sütun Eşleştirmeleri / Bank Column Mappings
+# Ham veriden analiz edilmiş gerçek sütun isimleri
+
+# Standart Şema (normalize edilmiş sütunlar):
+# - transaction_date: İşlem tarihi
+# - settlement_date: Hesaba geçiş tarihi
+# - gross_amount: Brüt tutar
+# - commission_amount: Komisyon tutarı
+# - commission_rate: Komisyon oranı (decimal)
+# - net_amount: Net tutar
+# - installment_count: Taksit sayısı
+# - transaction_type: İşlem tipi
+# - card_type: Kart tipi
+# - bank_name: Banka adı
+
+defaults:
+  decimal_separator: "."
+  date_format: "%d/%m/%Y"
+  settlement_days: 1
+
+banks:
+  ziraat:
+    name: "ZİRAAT"
+    display_name: "ZİRAAT BANKASI"
+    file_pattern: "*[Zz]iraat*.xlsx"
+    settlement_days: 1
+    # Ham sütun eşleştirmesi (gerçek veriden)
+    raw_columns:
+      İşlem Tarihi: transaction_date
+      Hesaba Geçiş Tarihi: settlement_date
+      Tutar: gross_amount
+      Kesilen Komisyon Tutarı: commission_amount
+      "Hesaba Geçen/Geçecek Net Tutar": net_amount
+      "Komisyon Oranı (%)": commission_rate
+      Taksit Sayısı: installment_count
+      İşlem Tipi: transaction_type
+      Kart Tipi: card_type
+      Kart No: card_number
+      Üye İşyeri No: merchant_id
+      Terminal No: terminal_id
+      Provizyon Kodu: approval_code
+      Para Cinsi: currency
+
+  akbank:
+    name: "Akbank"
+    display_name: "AKBANK T.A.S."
+    file_pattern: "*[Aa]kbank*.xlsx"
+    settlement_days: 1
+    raw_columns:
+      Tarih: transaction_date
+      ISLEM_TARIHI: transaction_date
+      VALOR_TARIHI: settlement_date
+      PROVIZYON_TUTAR: gross_amount
+      KOMISYON_TUTAR: commission_amount
+      EO_KES_TUTAR: commission_amount_alt
+      NET_TUTAR: net_amount
+      TAKSIT_SAYI: installment_count
+      TAKSIT_SIRA: installment_number
+      İşlem Tipi: transaction_type
+      ANA_KART_TIPI: card_issuer
+      ALT_KART_TIPI: card_type
+      KART_NO: card_number
+      UYE_ISYERI_NO: merchant_id
+      UYE_ISYERI_ADI: merchant_name
+      TERMINAL_NO: terminal_id
+      PROVIZYON_NO: approval_code
+      GUNSONU_TARIHI: end_of_day_date
+      CURRENCY: currency
+      IBAN: iban
+
+  garanti:
+    name: "Garanti"
+    display_name: "T. GARANTI BANKASI A.S."
+    file_pattern: "*[Gg]aranti*.xlsx"
+    settlement_days: 1
+    raw_columns:
+      ISLEMTARIHI: transaction_date
+      VALOR: settlement_date
+      BURUT: gross_amount
+      KOMISYON: commission_amount
+      NET: net_amount
+      TSAYISI: installment_count
+      ISLEMTIPI: transaction_type
+      URUN: card_type
+      GUNSONU: end_of_day_date
+      UYENO: merchant_id
+      FIRMAKODU: firm_code
+      DOVIZKODU: currency_code
+      TERMINAL: terminal_id
+      BATCHNO: batch_number
+      SUBE: branch_code
+      HESAP: account_number
+      ODULKESINTISI: reward_deduction
+      SERVISKESINTISI: service_deduction
+      BORCALACAK: credit_debit
+
+  halkbank:
+    name: "Halkbank"
+    display_name: "T. HALK BANKASI A.S."
+    file_pattern: "*[Hh]alk*.xlsx"
+    settlement_days: 1
+    raw_columns:
+      Tarih: transaction_date
+      Valor Tarihi: settlement_date
+      Bekleyen Alacak Tutarı: gross_amount
+      TL Karşılığı: gross_amount_tl
+      Bekleyen Borç Tutarı: commission_amount
+      Alacak Net Bekleyen: net_amount
+      Oran: commission_rate
+      İşlem Tipi: transaction_type
+      Kart Tipi: card_type
+      Uye Adı: merchant_name
+      Uye No: merchant_id
+      Sube Kodu: branch_code
+      İşlem Kodu: transaction_code
+      Host Cevap: host_response
+
+  qnb:
+    name: "QNB"
+    display_name: "FINANSBANK A.S."
+    file_pattern: "*[Qq][Nn][Bb]*.xls"
+    settlement_days: 1
+    raw_columns:
+      Tarih: transaction_date
+      Hesaba Geçiş Tarihi: settlement_date
+      Çözülmüş Alacak Tutarı: gross_amount
+      Çözülmüş Borç Tutarı: commission_amount
+      Oran: commission_rate
+      Taksit Tipi: transaction_type
+      Kart Tipi: card_type
+      Üye Adı: merchant_name
+      Üye No: merchant_id
+      Servis Açıklaması: service_description
+      Host Cevap: host_response
+      Bloke Tipi: block_type
+
+  vakifbank:
+    name: "Vakıfbank"
+    display_name: "T. VAKIFLAR BANKASI T.A.O."
+    file_pattern: "*[Vv]akıf*.csv"
+    delimiter: ";"
+    encoding: "iso-8859-9"
+    skip_rows: 2
+    settlement_days: 1
+    raw_columns:
+      İşlem Tarihi: transaction_date
+      Brüt Tutar: gross_amount
+      Komisyon: commission_amount
+      Net Tutar: net_amount
+      Taksit Sayısı: installment_count
+      Komisyon Oranı: commission_rate
+      Hesaba Geçiş Tarihi: settlement_date
+      İşlem Tipi: transaction_type
+      Kart Tipi: card_type
+      Kart Brand: card_brand
+      Onay Kodu: approval_code
+    transaction_type_map:
+      TEK: "Tek Çekim"
+      TKS: "Taksit"
+      IAD: "İade"
+      PUA: "Puan Harcama"
+      VFT: "Vade Farklı Satış"
+
+  ykb:
+    name: "YKB"
+    display_name: "YAPI VE KREDI BANKASI A.S."
+    file_pattern: "*[Yy][Kk][Bb]*.*"
+    settlement_days: 1
+    raw_columns:
+      # Yükleme Tarihi = İşlem Günü
+      Yükleme Tarihi: transaction_date
+      # Ödeme Tarihi = Valor (hesaba geçiş tarihi)
+      Ödeme Tarihi: settlement_date
+      # Brüt Tutar = eski sütun (yedek)
+      Brüt Tutar: gross_amount_old
+      # İşlem Tutarı = Brüt Tutar olarak kullanılır
+      İşlem Tutarı: gross_amount
+      # Komisyon _transform_ykb içinde hesaplanır: Taksitli İşlem Komisyonu + Katkı Payı TL
+      # Peşin İşlem Komisyonu (bazı dosyalarda olabilir, komisyona dahil DEĞİL)
+      Peşin İşlem Komisyonu: commission_pesin
+      # Taksitli İşlem Komisyonu (eski sütun, yedek)
+      Taksitli İşlem Komisyonu: commission_taksitli
+      # Katkı Payı TL — komisyon hesaplamasına dahil
+      Katkı Payı TL: katki_payi_tl
+      # Net = Brüt - Komisyon (hesaplanır)
+      Net Tutar: net_amount
+      Net: net_amount
+      # Taksit Sayısı / Taksit Numarası
+      "Taksit Sayısı / Taksit Numarası": installment_count
+      Taksit Sayısı: installment_count
+      # Diğer sütunlar
+      "Org. İşlem Tarihi": original_transaction_date
+      İşlem Tipi: transaction_type
+      Kart Tipi: card_type
+      Kart Markası: card_brand
+      Kart No: card_number
+      Terminal No: terminal_id
+      Onay Kodu: approval_code
+
+  isbankasi:
+    name: "İşbank"
+    display_name: "T. IS BANKASI A.S."
+    file_pattern: "*[Ii]s[Bb]ank*.xlsx"
+    settlement_days: 1
+    raw_columns:
+      İşlem Tarihi: transaction_date
+      Tutar: gross_amount
+      Komisyon: commission_amount
+      Net Tutar: net_amount
+      Taksit Sayısı: installment_count

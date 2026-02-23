@@ -1,0 +1,53 @@
+# Kariyer.net Finans - GitHub to Azure DevOps Sync
+# Bu workflow her push'ta Azure DevOps'a sync yapar
+# Target: https://dev.azure.com/KariyerNetTech/_git/Applied%20AI%20Projects/Finance-ai-transformation
+
+name: 🔄 Sync to Azure DevOps
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: 'Sync to Azure DevOps'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout GitHub Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: source
+
+      - name: 📥 Clone Azure DevOps Repo
+        run: |
+          git clone https://${{ secrets.AZURE_DEVOPS_PAT }}@dev.azure.com/KariyerNetTech/Applied%20AI%20Projects/_git/Applied%20AI%20Projects azure-repo
+        env:
+          AZURE_DEVOPS_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
+
+      - name: 🔄 Sync to Finance-ai-transformation folder
+        run: |
+          cd azure-repo
+          git config user.email "farajijobehdarvahid@gmail.com"
+          git config user.name "Vahid Faraji"
+          
+          # Remove old folder content (if exists)
+          rm -rf Finance-ai-transformation
+          
+          # Copy source to target folder
+          mkdir -p Finance-ai-transformation
+          cp -r ../source/* Finance-ai-transformation/
+          cp -r ../source/.streamlit Finance-ai-transformation/ 2>/dev/null || true
+          cp -r ../source/.github Finance-ai-transformation/ 2>/dev/null || true
+          
+          # Remove .git from copied folder
+          rm -rf Finance-ai-transformation/.git
+          
+          # Commit and push
+          git add Finance-ai-transformation/
+          git commit -m "Sync Finance-ai-transformation from GitHub - $(date +'%Y-%m-%d %H:%M')" || echo "No changes to commit"
+          git push origin main
+        env:
+          AZURE_DEVOPS_PAT: ${{ secrets.AZURE_DEVOPS_PAT }}
