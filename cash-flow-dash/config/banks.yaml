@@ -192,6 +192,8 @@ banks:
       Kart No: card_number
       Terminal No: terminal_id
       Onay Kodu: approval_code
+      # Mesaj Tipi: İade / normal işlem tespiti için
+      Mesaj Tipi: mesaj_tipi
 
   isbankasi:
     name: "İşbank"

@@ -820,21 +820,30 @@ class BankFileReader:
           - Yükleme Tarihi → transaction_date (İşlem Günü)
           - Ödeme Tarihi → settlement_date (Valor)
           - İşlem Tutarı → gross_amount (Brüt Tutar)
-          - Komisyon = Taksitli İşlem Komisyonu + Katkı Payı TL (iade → negatif / ters işlem)
+          - Komisyon = Taksitli İşlem Komisyonu + Katkı Payı TL
+          - Mesaj Tipi → iade tespiti ("İade" ise ters işlem)
           - Net = Brüt - Komisyon (hesaplanır)
           - Taksit Sayısı / Taksit Numarası → installment_count
         """
+        # ── Mesaj Tipi ile iade tespiti ──
+        iade_mask = pd.Series(False, index=df.index)
+        if "mesaj_tipi" in df.columns:
+            iade_mask = df["mesaj_tipi"].astype(str).str.strip().str.lower().str.contains("iade", na=False)
+        
         # ── Komisyon tutarı ──
         # Komisyon = Taksitli İşlem Komisyonu + Katkı Payı TL
-        # Normal satış → pozitif, İade (ters işlem) → negatif
-        # SUM doğal olarak doğru hesaplanır.
+        # Her zaman pozitif hesaplanır, iade ise işaret çevrilir.
         taksitli = pd.to_numeric(df.get("commission_taksitli", pd.Series(0, index=df.index)), errors="coerce").fillna(0)
         katki = pd.to_numeric(df.get("katki_payi_tl", pd.Series(0, index=df.index)), errors="coerce").fillna(0)
-        df["commission_amount"] = taksitli + katki
+        df["commission_amount"] = (taksitli + katki).abs()
+        # İade satırlarında komisyonu negatif yap (ters işlem)
+        df.loc[iade_mask, "commission_amount"] = -df.loc[iade_mask, "commission_amount"]
         
         # ── Brüt Tutar ──
         if "gross_amount" in df.columns:
             df["gross_amount"] = pd.to_numeric(df["gross_amount"], errors="coerce").fillna(0)
+            # İade satırlarında brüt tutarı negatif yap
+            df.loc[iade_mask, "gross_amount"] = -df.loc[iade_mask, "gross_amount"].abs()
         
         # ── Net = Brüt - Komisyon ──
         if "gross_amount" in df.columns and "commission_amount" in df.columns:
@@ -858,12 +867,14 @@ class BankFileReader:
         else:
             df["installment_count"] = 1
         
-        # ── İşlem kategorisi ──
-        if "transaction_type" in df.columns:
+        # ── İşlem kategorisi (Mesaj Tipi'nden) ──
+        if "mesaj_tipi" in df.columns:
+            df["transaction_category"] = "POS İşlemi"
+            df.loc[iade_mask, "transaction_category"] = "İade"
+        elif "transaction_type" in df.columns:
             tt = df["transaction_type"].astype(str).str.strip()
             df["transaction_category"] = "POS İşlemi"
-            iade_mask = tt.str.contains("ade", case=False, na=False)
-            df.loc[iade_mask, "transaction_category"] = "İade"
+            df.loc[tt.str.contains("ade", case=False, na=False), "transaction_category"] = "İade"
         else:
             df["transaction_category"] = "POS İşlemi"
         
