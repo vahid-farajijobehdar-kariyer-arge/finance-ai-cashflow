@@ -820,17 +820,17 @@ class BankFileReader:
           - Yükleme Tarihi → transaction_date (İşlem Günü)
           - Ödeme Tarihi → settlement_date (Valor)
           - İşlem Tutarı → gross_amount (Brüt Tutar)
-          - Komisyon = |Taksitli İşlem Komisyonu + Katkı Payı TL| (her zaman pozitif)
+          - Komisyon = Taksitli İşlem Komisyonu + Katkı Payı TL (iade → negatif / ters işlem)
           - Net = Brüt - Komisyon (hesaplanır)
           - Taksit Sayısı / Taksit Numarası → installment_count
         """
         # ── Komisyon tutarı ──
         # Komisyon = Taksitli İşlem Komisyonu + Katkı Payı TL
-        # Komisyon her zaman pozitif; iade işlemlerinde gross_amount negatif olduğu için
-        # toplam (SUM) doğal olarak doğru hesaplanır.
+        # Normal satış → pozitif, İade (ters işlem) → negatif
+        # SUM doğal olarak doğru hesaplanır.
         taksitli = pd.to_numeric(df.get("commission_taksitli", pd.Series(0, index=df.index)), errors="coerce").fillna(0)
         katki = pd.to_numeric(df.get("katki_payi_tl", pd.Series(0, index=df.index)), errors="coerce").fillna(0)
-        df["commission_amount"] = (taksitli + katki).abs()
+        df["commission_amount"] = taksitli + katki
         
         # ── Brüt Tutar ──
         if "gross_amount" in df.columns:
